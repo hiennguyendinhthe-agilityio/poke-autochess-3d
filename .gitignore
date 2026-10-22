@@ -1,0 +1,8 @@
+node_modules
+dist
+.DS_Store
+*.log
+# File âm thanh/nhạc do người chơi tự thêm (có thể có bản quyền) - KHÔNG đưa vào git
+public/audio-user/*
+!public/audio-user/README.md
+.tmp
