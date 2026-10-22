@@ -1,3 +1,4 @@
+import FORMS from './generated/forms.json';
 // Lời thoại "tiếng kêu" hiển thị trên bong bóng khi Pokémon dùng chiêu (chữ, không dùng bản ghi âm)
 const CUSTOM = {
   25: 'Pika Pika!', 172: 'Pi-chu!', 26: 'Rai Rai!', 52: 'Nyaa! Meowth!', 53: 'Nyaaa!', 360: 'Wobba!', 202: 'Wobbuffet!',
@@ -7,6 +8,6 @@ const CUSTOM = {
 };
 export function cryText(line, dex) {
   if (CUSTOM[dex]) return CUSTOM[dex];
-  const n = (line && line.key || '').replace(/^./, c => c.toUpperCase());
-  return n ? n + '!' : null;
+  const f = FORMS[dex];
+  return f ? f.name + '!' : null;
 }

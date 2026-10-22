@@ -171,9 +171,9 @@ export class World {
           const h = this.headPos(v);
           v.actor.play(FORMS[v.actor.dex].anims.Charge ? 'Charge' : 'Attack', true); v.actor.speed = 1;
           this.fx.ring(v.x, v.z, 1.1, e.type, .5); this.fx.particle({ x: h.x, y: h.y, z: h.z, life: .4, size: 2, color: e.type, alpha: .6 });
-          this.addText({ x: h.x, y: h.y + 1.0, z: h.z, text: e.name + '!', col: TYPE_COL[e.type] || '#fff', size: 17, life: 1.4, vy: -18, banner: true });
+          this.addText({ x: h.x, y: h.y + 1.0, z: h.z, text: e.name + '!', col: TYPE_COL[e.type] || '#fff', size: 14, life: 1.2, vy: -16, banner: true });
           const line = LINE[v.f.key]; const cry = line ? cryText(line, v.actor.dex) : null;
-          if (cry) this.addText({ x: h.x, y: h.y + .55, z: h.z, text: cry, col: '#ffffff', size: 12, life: 1.1, vy: -10, bubble: true });
+          if (cry && Math.random() < .6) this.addText({ x: h.x, y: h.y + .45, z: h.z, text: cry, col: '#ffffff', size: 11, life: 1.0, vy: -8, bubble: true });
           this.sound('cast', { type: e.type, kind: e.kind, dex: v.actor.dex });
           break;
         }

@@ -92,7 +92,8 @@ export class Hud {
     this.tips = [];
     // vòng + máu
     const info = a.match.info;
-    $('rTitle').textContent = 'Vòng ' + g.round + (info.pve ? ' · Hoang dã' : '');
+    const rr = a.phase === 'result' && a.lastOut ? a.lastOut.round : g.round, pve = a.phase === 'result' && a.lastOut ? a.lastOut.pve : info.pve;
+    $('rTitle').textContent = 'Vòng ' + rr + (pve ? ' · Hoang dã' : '');
     $('hpNum').textContent = g.hp; $('hpBar').style.width = g.hp + '%'; $('hpBox').classList.toggle('low', g.hp <= 30);
     // kinh tế
     const lvmax = g.level >= 9, need = g.xpNeed;

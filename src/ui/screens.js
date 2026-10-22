@@ -1,6 +1,7 @@
 // Các màn hình lớn: menu chính, chọn Pokémon khởi đầu, cách chơi, cài đặt, tạm dừng, kết thúc.
-import { LINE, formAt, unitTraits } from '../data/roster.js';
-import { typeChip, mountSprite } from './icons.js';
+import { LINE, LINES, formAt, unitTraits, COST_COL, baseStats } from '../data/roster.js';
+import { typeChip, mountSprite, drawSprite, traitBadge } from './icons.js';
+import { abilityText } from './describe.js';
 import { TYPE_COL } from '../data/types.js';
 import { TRAIT_LIST, modsText } from '../data/traits.js';
 import { DIFFICULTY } from '../game/bots.js';
@@ -34,12 +35,14 @@ export class Screens {
         <button class="btn gold" id="mNew">Chơi mới</button>
         ${hasSave ? `<button class="btn green" id="mCont">Tiếp tục · Vòng ${hasSave.round}</button>` : ''}
         <button class="btn" id="mHow">Cách chơi</button>
+        <button class="btn" id="mDex">Danh mục Pokémon</button>
         <button class="btn" id="mSet">Cài đặt</button>
       </div>
       <div class="foot">Dự án fan phi thương mại, làm vì đam mê. Pokémon và tên Pokémon thuộc Nintendo / Game Freak / The Pokémon Company, dự án không liên kết với họ.<br>Sprite: PMD SpriteCollab (CC BY-NC 4.0) · Dữ liệu: PokeAPI · Âm thanh tự tổng hợp</div>`, 'title');
     d.querySelector('#mNew').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.starter(); };
     if (hasSave) d.querySelector('#mCont').onclick = () => { a.audio.init(); a.audio.sfx('click'); a.continueGame(); };
     d.querySelector('#mHow').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.howTo(); };
+    d.querySelector('#mDex').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.codex(); };
     d.querySelector('#mSet').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.settings(); };
     a.audio.music('menu');
   }
@@ -89,7 +92,12 @@ export class Screens {
       <div class="set"><span style="width:90px">Rung màn hình</span><input type="checkbox" id="sShake" ${a.settings.shake ? 'checked' : ''}></div>
       <div class="set"><span style="width:90px">Chất lượng</span><select id="sQ"><option value="1">Tiết kiệm pin</option><option value="2">Sắc nét</option></select></div>
       <p style="opacity:.75;font-size:12px">Muốn dùng nhạc hoặc âm thanh riêng? Xem <code>public/audio-user/README.md</code> trong mã nguồn. Âm thanh mặc định là tự tổng hợp, không có bản quyền.</p>
+      <div class="set"><button class="btn" id="sOff" style="padding:6px 12px">Tải trước để chơi offline (~15MB)</button><span id="sOffT" style="font-size:12px;opacity:.8"></span></div>
       <div class="set"><button class="btn red" id="sWipe" style="padding:6px 12px">Xóa dữ liệu lưu</button></div>`);
+    m.querySelector('#sOff').onclick = async () => {
+      const t = m.querySelector('#sOffT'); t.textContent = 'Đang tải...';
+      try { await a.precache(p => { t.textContent = Math.round(p * 100) + '%'; }); t.textContent = 'Xong! Có thể chơi không cần mạng.'; } catch (e) { t.textContent = e.message; }
+    };
     m.querySelector('#sMusic').oninput = e => au.setVolume('music', e.target.value / 100);
     m.querySelector('#sSfx').oninput = e => { au.setVolume('sfx', e.target.value / 100); };
     m.querySelector('#sSfx').onchange = () => au.sfx('buy');
@@ -102,16 +110,45 @@ export class Screens {
   pause() {
     const a = this.app;
     const m = this.modal(`<h2 style="text-align:center">Tạm dừng</h2><div class="menu" style="margin:14px auto 4px">
-      <button class="btn green" id="pRes">Tiếp tục</button><button class="btn" id="pHow">Cách chơi</button><button class="btn" id="pSet">Cài đặt</button><button class="btn red" id="pQuit">Bỏ cuộc về menu</button></div>`);
+      <button class="btn green" id="pRes">Tiếp tục</button><button class="btn" id="pHow">Cách chơi</button><button class="btn" id="pDex">Danh mục Pokémon</button><button class="btn" id="pSet">Cài đặt</button><button class="btn red" id="pQuit">Bỏ cuộc về menu</button></div>`);
     a.paused = true;
     const done = () => { m.remove(); a.paused = false; this.fix(); };
-    m.querySelector('#pRes').onclick = done; m.querySelector('#pHow').onclick = () => this.howTo(); m.querySelector('#pSet').onclick = () => this.settings();
+    m.querySelector('#pRes').onclick = done; m.querySelector('#pHow').onclick = () => this.howTo(); m.querySelector('#pDex').onclick = () => this.codex(); m.querySelector('#pSet').onclick = () => this.settings();
     m.querySelector('#pQuit').onclick = () => { if (confirm('Bỏ ván này? (Ván được lưu tự động đầu mỗi vòng, bạn có thể tiếp tục sau)')) { m.remove(); a.paused = false; this.fix(); a.quitToTitle(); } };
     m.addEventListener('pointerdown', e => { if (e.target === m) done(); });
   }
 
+  // Danh mục: toàn bộ Pokémon theo giá + các tộc/hệ
+  codex(tab = 1) {
+    document.querySelectorAll('.modal.codex').forEach(x => x.remove());
+    const m = this.modal(`<button class="btn close" style="padding:4px 12px">✕</button><h2>Danh mục Pokémon</h2>
+      <div class="tabs">${[1, 2, 3, 4, 5].map(c => `<button class="tab ${tab === c ? 'on' : ''}" data-t="${c}" style="--tc:${COST_COL[c]}">Giá ${c}</button>`).join('')}<button class="tab ${tab === 'tr' ? 'on' : ''}" data-t="tr">Hệ &amp; Tộc</button></div><div id="cxBody"></div>`);
+    m.classList.add('codex'); m.querySelector('.box').style.width = 'min(920px,100%)';
+    const body = m.querySelector('#cxBody');
+    if (tab === 'tr') {
+      body.innerHTML = '<div class="cxgrid">' + TRAIT_LIST.map(t => {
+        const members = LINES.filter(l => l.traits.includes(t.id) || [0, 1, 2].some(i => formAt(l, i + 1).types.includes(t.id)));
+        return `<div class="cxcard" style="--cc:${t.color}"><div style="display:flex;gap:8px;align-items:center">${traitBadge(t.id, 26)}<b>${t.name}</b><span style="opacity:.6;font-size:11px">${t.kind === 'anime' ? 'Tộc' : 'Hệ'} · ${members.length} Pokémon</span></div>
+          ${t.tiers.map(x => `<div style="font-size:12px"><b style="color:var(--accent)">(${x.n})</b> ${modsText(x.mods)}${x.mods && x.allMods ? '; ' : ''}${x.allMods ? 'cả đội: ' + modsText(x.allMods) : ''}</div>`).join('')}
+          <div style="font-size:11px;opacity:.75;margin-top:4px">${members.map(l => formAt(l, 1).name).join(', ')}</div></div>`;
+      }).join('') + '</div>';
+    } else {
+      body.innerHTML = '<div class="cxgrid">' + LINES.filter(l => l.cost === tab).map(l => {
+        const ab = abilityText(l, 1), forms = [1, 2, 3].map(s => formAt(l, s)), names = forms.filter((f, i) => i === 0 || f.dex !== forms[i - 1].dex);
+        const traits = [...new Set([1, 2, 3].flatMap(s => unitTraits(l, s)))];
+        return `<div class="cxcard" style="--cc:${COST_COL[l.cost]}"><div class="cxs">${names.map(() => '<canvas></canvas>').join('<span>›</span>')}</div>
+          <b>${names.map(f => f.name).join(' › ')}</b><div class="row" style="display:flex;gap:3px;flex-wrap:wrap;margin:3px 0">${traits.map(t => typeChip(t)).join('')}</div>
+          ${ab ? `<div style="font-size:12px"><b style="color:var(--accent)">✦ ${ab.name}</b>: ${ab.text}</div>` : ''}</div>`;
+      }).join('') + '</div>';
+      body.querySelectorAll('.cxcard').forEach((el, i) => { const l = LINES.filter(x => x.cost === tab)[i], forms = [1, 2, 3].map(s => formAt(l, s)), names = forms.filter((f, k) => k === 0 || f.dex !== forms[k - 1].dex); el.querySelectorAll('canvas').forEach((cv, k) => drawSprite(cv, names[k].dex, 2)); });
+    }
+    m.querySelectorAll('.tab').forEach(b => b.onclick = () => { this.app.audio.sfx('click'); this.codex(b.dataset.t === 'tr' ? 'tr' : +b.dataset.t); });
+    m.querySelector('.close').onclick = () => { m.remove(); this.fix(); };
+  }
+
   over(g, placement, record) {
     this.clear(); const a = this.app;
+    a.hudRoot.classList.add('hidden'); a.hud.hideResult(); a.hud.$('bannerHost').innerHTML = '';
     const win = placement === 1;
     const d = this.open(`<div style="font-size:18px;letter-spacing:4px;opacity:.85">${win ? 'VÔ ĐỊCH!' : 'KẾT THÚC'}</div>
       <div class="place" style="color:${win ? '#ffd24a' : placement <= 4 ? '#7dffa0' : '#ff9aa8'}">#${placement}</div>

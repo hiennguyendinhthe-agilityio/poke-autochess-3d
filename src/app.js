@@ -8,6 +8,7 @@ import { Input } from './ui/input.js';
 import { Audio } from './audio/audio.js';
 import { LINE, formAt } from './data/roster.js';
 import { itemColor } from './ui/icons.js';
+import FORMS from './data/generated/forms.json';
 
 const SAVE = 'pac3d.save', SET = 'pac3d.settings', BEST = 'pac3d.best';
 const store = {
@@ -66,6 +67,20 @@ export class App {
     this.world.fx.clear();
     for (const k of [...this.world.views.keys()]) this.world.removeView(k);
     this.updateInset(); this.showcase(); this.screens.title();
+  }
+
+  // Tải trước toàn bộ sprite vào bộ nhớ đệm để chơi không cần mạng
+  async precache(onProgress) {
+    if (!('serviceWorker' in navigator)) throw new Error('Trình duyệt không hỗ trợ');
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg || !reg.active) throw new Error('Chức năng này chỉ có trên bản đã triển khai (HTTPS)');
+    const urls = [];
+    for (const dex in FORMS) { urls.push(`assets/pokemon/${dex}/portrait.png`); for (const a in FORMS[dex].anims) urls.push(`assets/pokemon/${dex}/${a}.png`); }
+    return new Promise(res => {
+      const on = e => { const d = e.data; if (!d) return; if (d.type === 'precache-progress') onProgress(d.done / d.total); if (d.type === 'precache-done') { navigator.serviceWorker.removeEventListener('message', on); res(); } };
+      navigator.serviceWorker.addEventListener('message', on);
+      reg.active.postMessage({ type: 'precache', urls: urls.map(u => new URL(u, document.baseURI).href) });
+    });
   }
 
   // ---------- bắt đầu ván ----------

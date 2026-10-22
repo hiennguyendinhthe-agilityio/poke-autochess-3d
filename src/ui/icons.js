@@ -83,4 +83,10 @@ export function mountSprite(canvas, dex, { anim = 'Idle', dir = 0, scale = 3 } =
   requestAnimationFrame(tick);
   const stop = () => { dead = true; live.delete(stop); }; live.add(stop); return stop;
 }
+// Vẽ một khung hình tĩnh (Idle, nhìn xuống) lên canvas — dùng cho danh mục
+export function drawSprite(canvas, dex, scale = 2) {
+  const f = FORMS[dex]; if (!f) return; const info = f.anims.Idle;
+  canvas.width = info.fw * scale; canvas.height = info.fh * scale; canvas.style.imageRendering = 'pixelated';
+  loadImg(`assets/pokemon/${dex}/Idle.png`).then(img => { if (!img) return; const g = canvas.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0, info.fw, info.fh, 0, 0, canvas.width, canvas.height); });
+}
 export const portraitUrl = dex => `assets/pokemon/${dex}/portrait.png`;
