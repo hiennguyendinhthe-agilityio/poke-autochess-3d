@@ -19,7 +19,8 @@ const store = {
 
 export class App {
   constructor(root) {
-    this.settings = Object.assign({ shake: true, dpr: 2, seenHint: false, diff: 1 }, store.get(SET) || {});
+    this.forms = FORMS;       // phục vụ kiểm thử
+    this.settings = Object.assign({ shake: true, dpr: 2, seenHint: false, seenShop: false, diff: 1 }, store.get(SET) || {});
     this.audio = new Audio();
     this.world = new World(root);
     this.applyQuality();
@@ -114,10 +115,17 @@ export class App {
     this.hud.banner(`Vòng ${g.round}`, info.pve ? info.name : 'Đối thủ: ' + f.name, info.pve ? '#9be0ff' : '#ffcf3a');
     this.audio.music('prep'); this.audio.sfx('ready');
     this.saveGame();
-    if (!this.settings.seenHint && g.round === 1) this.hud.hint('Kéo Pokémon từ băng ghế xuống bàn cờ rồi bấm SẴN SÀNG');
-    else this.hud.hint('');
+    this.updateHint();
   }
 
+  // Gợi ý từng bước cho người mới (biến mất sau khi người chơi làm đúng)
+  updateHint() {
+    const g = this.match.g;
+    if (this.phase !== 'prep') return this.hud.hint('');
+    if (!this.settings.seenHint && g.round === 1 && !g.boardCount()) this.hud.hint('Kéo Pokémon từ băng ghế xuống bàn cờ rồi bấm SẴN SÀNG');
+    else if (!this.settings.seenShop && g.round <= 3 && g.gold >= 1) this.hud.hint('Bấm vào thẻ ở cửa hàng để mua thêm Pokémon (tốn vàng)');
+    else this.hud.hint('');
+  }
   refreshView() { this.world.syncPrep(this.match.g); this.hud.refresh(); this.updateInset(); }
   // báo cho camera biết HUD chiếm bao nhiêu màn hình để bàn cờ không bị che
   updateInset() {
@@ -143,6 +151,10 @@ export class App {
       this.updateCombat(dt);
     } else if (this.phase === 'result') {
       this.hud.setPhase('result', '', 'Kết quả', 1);
+      if (this.lastOut && !this.lastOut.over && !this.paused && !this.modalOpen) {
+        this.resT -= dt; this.hud.setResultCountdown(Math.ceil(this.resT));
+        if (this.resT <= 0) this.nextAfterResult();
+      }
     }
     if (!this.paused) w.frame(dt); else w.frame(0);
   }
@@ -205,7 +217,7 @@ export class App {
     const b = this.battle, g = this.match.g;
     const winner = b.winner, survivors = b.alive(winner).length;
     const out = this.match.finishRound({ winner, survivors });
-    this.lastOut = out; this.phase = 'result';
+    this.lastOut = out; this.phase = 'result'; this.resT = 8;
     this.hud.setCombatUi(false); this.world.mode = 'prep';
     this.audio.sfx(out.won ? 'win' : 'lose'); if (!out.pve && !out.won) this.audio.sfx('damage');
     this.audio.music(out.won ? 'victory' : 'defeat');
@@ -236,6 +248,7 @@ export class App {
     if (this.phase === 'result' || this.screenOpen || this.modalOpen) return;
     const g = this.match.g, r = g.buy(slot);
     if (!r.ok) return this.fail(r.err);
+    if (!this.settings.seenShop) { this.settings.seenShop = true; this.saveSettings(); this.updateHint(); }
     this.audio.sfx('buy'); this.audio.cry(formAt(LINE[r.unit.key], 1).dex, { quiet: true });
     this.refreshView();
     r.merges.forEach((mg, i) => {
@@ -251,7 +264,7 @@ export class App {
   moveUnit(id, to) {
     const g = this.match.g, r = g.move(id, to);
     if (!r.ok) return this.fail(r.err);
-    if (!r.noop) { this.audio.sfx('drop'); this.settings.seenHint = true; this.hud.hint(''); }
+    if (!r.noop) { this.audio.sfx('drop'); if (!this.settings.seenHint) { this.settings.seenHint = true; this.saveSettings(); } this.updateHint(); }
     this.refreshView();
   }
   sell(id) {

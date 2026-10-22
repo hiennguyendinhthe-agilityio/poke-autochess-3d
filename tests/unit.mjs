@@ -211,6 +211,10 @@ t('PvE hoang dã: đội đủ mạnh thì thắng vòng 1', () => {
 });
 
 sec('Ván chơi trọn vẹn');
+t('ID đối thủ không bao giờ trùng ID Pokémon người chơi', () => {
+  const m = Match.create(21, 'charmander'); const g = m.g; g.nid = 999990;           // giả lập ván rất dài
+  for (const r of [1, 4]) { g.round = r; const f = m.beginRound(); for (const sp of f.specs) assert.ok(sp.id >= 1e6, 'id ' + sp.id); }
+});
 t('lưu/tải: JSON khứ hồi, tiếp tục cho kết quả y hệt', () => {
   const a = Match.create(11, 'squirtle'); a.beginRound();
   const json = JSON.stringify(a.g.toJSON()); const b = Match.load(JSON.parse(json));

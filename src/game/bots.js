@@ -114,7 +114,7 @@ export function botSpecs(bot, team, idBase = 0) {
 // Pokémon hoang dã cho vòng PvE
 export function wildSpecs(info) {
   const order = [3, 4, 2, 5, 1, 6, 0, 7];
-  return info.units.map((u, i) => ({ id: 500 + i, team: 1, cell: { c: order[i % 8], r: i < 8 ? 0 : 1 }, wild: u.wild, cost: u.cost, mult: u.mult, star: u.star || 1, items: [] }));
+  return info.units.map((u, i) => ({ id: 1e6 + i, team: 1, cell: { c: order[i % 8], r: i < 8 ? 0 : 1 }, wild: u.wild, cost: u.cost, mult: u.mult, star: u.star || 1, items: [] }));
 }
 
 export { baseDamage };

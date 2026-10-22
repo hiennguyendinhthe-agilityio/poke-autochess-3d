@@ -71,6 +71,7 @@ export class Hud {
     this.root.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') show(e); });
     // thông tin khi trỏ vào thẻ trong cửa hàng
     $('shop').addEventListener('pointerover', e => { const c = e.target.closest('.card'); if (c && !c.classList.contains('sold') && e.pointerType !== 'touch') this.showInfo({ shop: c.dataset.key }); });
+    $('shop').addEventListener('pointerleave', () => { if (this.sel && this.sel.shop) this.hideInfo(true); });
     // kéo vật phẩm từ kho
     $('bag').addEventListener('pointerdown', e => {
       const s = e.target.closest('.slot.has'); if (!s) return; e.preventDefault();
@@ -236,6 +237,7 @@ export class Hud {
     d.innerHTML = `<h2>${out.pve ? (out.won ? 'DỌN SẠCH!' : 'THẤT BẠI') : out.won ? 'CHIẾN THẮNG!' : 'THUA RỒI'}</h2>${rows}<button class="btn green" id="resOk">Tiếp tục</button>`;
     this.root.appendChild(d); d.querySelector('#resOk').onclick = () => this.app.nextAfterResult();
   }
+  setResultCountdown(n) { const b = this.root.querySelector('#resOk'); if (b && b.dataset.n !== String(n)) { b.dataset.n = n; b.textContent = n > 0 ? `Tiếp tục (${n})` : 'Tiếp tục'; } }
   hideResult() { const r = this.root.querySelector('#resultBox'); if (r) r.remove(); }
 
   // ---------- kéo vật phẩm ----------

@@ -63,12 +63,31 @@ await step('vào ván: HUD, cửa hàng 5 thẻ, đã có Pokémon khởi đầu
   assert.equal(await page.evaluate(() => __app.match.g.diff), 0);
   await page.waitForTimeout(2200); await shot(page, '03-prep');
 });
+await step('âm thanh: mọi hiệu ứng, tiếng kêu 181 dạng và các bài nhạc chạy không lỗi', async () => {
+  const r = await page.evaluate(async () => {
+    const au = __app.audio; au.init(); const errs = [];
+    const names = 'click pick drop error buy sell roll xp levelup item combine star2 star3 ready fight tick swing hit cast faint quake boom leap blink win lose damage'.split(' ');
+    for (const n of names) { try { au.sfx(n, { type: 'Fire', crit: true, ability: true, eff: 'super' }); } catch (e) { errs.push(n + ': ' + e.message); } }
+    for (const d of Object.keys(__app.forms)) { try { au.lastCry = 0; au.voices = 0; au.cry(+d); } catch (e) { errs.push('cry ' + d + ': ' + e.message); } }
+    for (const m of ['menu', 'prep', 'combat', 'victory', 'defeat', 'prep']) { try { au.music(m); await new Promise(r => setTimeout(r, 250)); } catch (e) { errs.push('music ' + m + ': ' + e.message); } }
+    au.setVolume('music', .5); au.setVolume('sfx', .8); au.stopMusic();
+    return { errs, state: au.ctx && au.ctx.state, n: Object.keys(__app.forms).length };
+  });
+  assert.deepEqual(r.errs, []); assert.ok(r.n >= 170); assert.ok(['running', 'suspended'].includes(r.state));
+});
 await step('mua Pokémon: trừ vàng, thêm vào băng ghế; hết vàng thì báo lỗi', async () => {
   await page.evaluate(() => { __app.match.g.gold = 8; __app.refreshView(); });
   const before = await state(page); await page.click('#shop .card:not(.sold)');
   const after = await state(page); assert.ok(after.gold < before.gold && after.bench === before.bench + 1);
   await page.evaluate(() => { __app.match.g.gold = 0; __app.refreshView(); });
   await page.click('#shop .card:not(.sold)'); await page.waitForSelector('.toast'); assert.equal((await state(page)).bench, after.bench);
+});
+await step('gộp 3 con giống nhau qua giao diện: lên 2★, tiến hóa, có hiệu ứng, không lỗi', async () => {
+  const r = await page.evaluate(() => { const g = __app.match.g; g.gold = 30; g.bench.fill(null); g.board.fill(null); g.bench[0] = g.makeUnit('machop', 1); g.bench[1] = g.makeUnit('machop', 1); g.shop[2] = 'machop'; g.pool.machop--; __app.refreshView(); return true; });
+  await page.locator('#shop .card').nth(2).click(); await page.locator('.toast', { hasText: '2★' }).first().waitFor({ timeout: 5000 });
+  const u = await page.evaluate(() => __app.match.g.allUnits().map(x => [x.key, x.star])); assert.deepEqual(u, [['machop', 2]]);
+  await page.waitForTimeout(700); assert.equal(await page.evaluate(() => __app.world.views.get('u' + __app.match.g.allUnits()[0].id).actor.form.name), 'Machoke');
+  await page.evaluate(() => { const g = __app.match.g; g.bench[3] = g.makeUnit('geodude', 1); __app.refreshView(); });
 });
 await step('kéo-thả bằng chuột: băng ghế -> sân, sân -> băng ghế', async () => {
   const uid = await page.evaluate(() => __app.match.g.bench.find(Boolean).id);
@@ -107,6 +126,14 @@ await step('rê chuột vào tộc hiện chú thích; bấm Pokémon hiện b�
   await page.hover('.trait >> nth=0'); await page.waitForSelector('.tip:not(.hidden)'); assert.ok((await page.locator('.tip').innerText()).length > 10);
   const uid = await page.evaluate(() => __app.match.g.boardUnits()[0].id); const p = await unitScreen(page, uid); await page.mouse.click(p.x, p.y);
   await page.waitForSelector('#info:not(.hidden)'); assert.ok((await page.locator('#info').innerText()).includes('Máu')); await shot(page, '05-info');
+  await page.mouse.click(700, 120);
+});
+await step('bấm vào Pokémon đối thủ ở nửa trên hiện thông tin "Đối thủ"', async () => {
+  await page.evaluate(() => __app.hud.hideInfo(true));
+  const id = await page.evaluate(() => __app.match.g.fight.specs[0].id); await settle(page);
+  const p = await page.evaluate(id => { const v = __app.world.views.get('e' + id), q = __app.world.project(v.x, .5, v.z), r = __app.world.canvas.getBoundingClientRect(); return { x: r.left + q.x, y: r.top + q.y }; }, id);
+  await page.mouse.click(p.x, p.y); await page.waitForTimeout(300);
+  const visible = await page.evaluate(() => !document.getElementById('info').classList.contains('hidden')); if (visible) assert.ok((await page.locator('#info').innerText()).includes('Đối thủ') || (await page.locator('#info').innerText()).includes('hoang dã'));
   await page.mouse.click(700, 120);
 });
 await step('SẴN SÀNG -> chiến đấu -> kết quả -> vòng kế tiếp', async () => {

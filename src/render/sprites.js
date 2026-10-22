@@ -26,7 +26,7 @@ export const isReady = dex => { const c = cache.get(dex + '/Idle'); return !!(c 
 const WORLD_PER_PX = .046;
 export function worldHeight(dex) {
   const f = FORMS[dex], bh = f.anims.Idle.bh || 24;
-  return Math.max(.95, Math.min(2.5, bh * WORLD_PER_PX));
+  return Math.max(.95, Math.min(1.95, bh * WORLD_PER_PX));
 }
 
 // Hướng PMD: 0 xuống, 1 xuống-phải, 2 phải, 3 lên-phải, 4 lên, 5 lên-trái, 6 trái, 7 xuống-trái

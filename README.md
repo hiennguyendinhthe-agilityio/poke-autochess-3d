@@ -43,7 +43,7 @@ npm run preview      # xem thử bản build
 ## Kiểm thử
 
 ```bash
-npm test             # test logic (34 test): dữ liệu, kho chung, gộp sao, kinh tế, chiến đấu, bot, lưu/tải, cả ván tự động
+npm test             # test logic (35 test): dữ liệu, kho chung, gộp sao, kinh tế, chiến đấu, bot, lưu/tải, cả ván tự động
 npm run test:e2e     # test trình duyệt thật (Playwright): click, kéo-thả, chiến đấu, lưu/tiếp tục, giao diện điện thoại
 npm run test:all     # tất cả (cần build trước)
 ```

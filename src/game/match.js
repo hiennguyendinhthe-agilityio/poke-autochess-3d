@@ -5,6 +5,9 @@ import { roundInfo, baseDamage, ARENAS } from './rounds.js';
 import { runBattle } from '../sim/battle.js';
 import { mulberry32 } from '../sim/rng.js';
 
+// ID của đơn vị đối thủ nằm ở dải riêng để không bao giờ trùng ID Pokémon của người chơi
+export const ENEMY_ID = 1e6;
+
 export class Match {
   constructor(game) { this.g = game; }
 
@@ -33,7 +36,7 @@ export class Match {
       const opp = (pool.length ? pool : alive)[g.rng.int((pool.length ? pool : alive).length)];
       // sân đấu mang màu hệ chủ đạo của đối thủ
       const arena = ARENAS[opp.id % ARENAS.length];
-      g.fight = { pve: false, name: opp.name, col: opp.col, specs: botSpecs(opp, 1, 500), arena, oppId: opp.id };
+      g.fight = { pve: false, name: opp.name, col: opp.col, specs: botSpecs(opp, 1, ENEMY_ID), arena, oppId: opp.id };
     }
     g.save();
     return g.fight;

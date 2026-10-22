@@ -76,7 +76,7 @@ export class World {
     const v = this.views.get(key); if (!v) return;
     this.scene.remove(v.actor.group); v.actor.dispose(); this.views.delete(key);
   }
-  scaleFor(star) { return star === 1 ? 1 : star === 2 ? 1.12 : 1.26; }
+  scaleFor(star) { return star === 1 ? 1 : star === 2 ? 1.08 : 1.16; }
 
   // Đồng bộ cảnh chuẩn bị với trạng thái game
   syncPrep(game, { instant = false } = {}) {
@@ -88,7 +88,7 @@ export class World {
       if (v && v.f) return;            // đang chiến đấu: không đụng tới
       if (!v) { preload([form.dex]); v = this.makeView(key, form.dex, 0, u.star); v.spawn = 1; const p = zone === 'bench' ? benchPos(idx) : boardPos(idx % 8, Math.floor(idx / 8)); v.x = p.x; v.z = p.z; v.actor.group.position.set(v.x, 0, v.z); }
       v.unit = u; v.star = u.star; v.f = null; v.dying = 0; v.actor.fade = 1; v.actor.group.visible = true;
-      if (v.actor.dex !== form.dex) { v.actor.setDex(form.dex); preload([form.dex]); }
+      if (v.actor.dex !== form.dex) { v.actor.setDex(form.dex); preload([form.dex]); v.pop = 1; }
       v.actor.setScale(this.scaleFor(u.star) * (zone === 'bench' ? .85 : 1));
       const p = zone === 'bench' ? benchPos(idx) : boardPos(idx % 8, Math.floor(idx / 8));
       v.tx = p.x; v.tz = p.z; v.zone = zone; v.idx = idx;
@@ -254,6 +254,10 @@ export class World {
       }
       a.group.position.set(v.x, v.y, v.z);
       a.shadow.position.y = (.03 - v.y) / a.scaleMul;   // bóng luôn ở mặt đất
+      if (v.pop > 0) { v.pop = Math.max(0, v.pop - dt * 2.2); if (!v.dying) a.group.scale.setScalar(a.scaleMul * (1 + Math.sin(v.pop * Math.PI) * .35)); }
+      if (v.star === 3 && !v.dying && a.group.visible && (v.aura = (v.aura || 0) - dt) <= 0) {
+        v.aura = .16; this.fx.particle({ x: v.x + (Math.random() - .5) * .8, y: .1 + Math.random() * a.headY * .8, z: v.z + (Math.random() - .5) * .5, vy: .6, life: .9, size: .2, color: '#ffe14a', tex: 'star', alpha: .9, spin: 2 });
+      }
       a.update(dt);
     }
     // đang kéo
