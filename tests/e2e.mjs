@@ -84,6 +84,20 @@ await step('mua Pokémon: trừ vàng, thêm vào băng ghế; hết vàng thì 
   await page.evaluate(() => { __app.match.g.gold = 0; __app.refreshView(); });
   await page.click('#shop .card:not(.sold)'); await page.waitForSelector('.toast'); assert.equal((await state(page)).bench, after.bench);
 });
+await step('thẻ cửa hàng hiện cột huy hiệu hệ/tộc (mỗi thẻ ít nhất 1 huy hiệu, nhìn thấy được)', async () => {
+  const r = await page.evaluate(() => [...document.querySelectorAll('#shop .card:not(.sold)')].map(c => { const b = [...c.querySelectorAll('.tgi')].map(x => x.getBoundingClientRect()); return { n: b.length, ok: b.every(q => q.width > 8 && q.height > 8 && q.right <= c.getBoundingClientRect().right) }; }));
+  assert.ok(r.length >= 3); assert.ok(r.every(x => x.n >= 1 && x.ok), JSON.stringify(r));
+});
+await step('bấm vào hệ/tộc: mở bảng thành viên, có trạng thái sở hữu và viền sáng; bấm khoảng trống thì đóng', async () => {
+  await page.evaluate(() => { const g = __app.match.g; g.level = 6; g.bench.fill(null); g.board.fill(null); g.board[27] = g.makeUnit('charmander', 1); g.bench[0] = g.makeUnit('cyndaquil', 1); g.shop[1] = 'flareon'; __app.refreshView(); });
+  await page.locator('.trait[data-trait="Fire"]').click(); await page.waitForSelector('#tpanel:not(.hidden)');
+  const r = await page.evaluate(() => ({ txt: document.getElementById('tpanel').innerText, board: document.querySelectorAll('.mem.st-board').length, bench: document.querySelectorAll('.mem.st-bench').length, shop: document.querySelectorAll('.mem.st-shop').length, mems: document.querySelectorAll('.mem').length, glow: __app.world.glow && __app.world.glow.keys.size }));
+  assert.ok(r.txt.includes('Lửa') && r.mems >= 6); assert.equal(r.board, 1); assert.equal(r.bench, 1); assert.ok(r.shop >= 1); assert.equal(r.glow, 2, 'viền sáng cho cả Pokémon trên sân và ghế');
+  await page.locator('.mem.st-board').click(); assert.ok((await page.locator('.tdetail').innerText()).includes('Charmander'));
+  await shot(page, '03b-trait-panel');
+  await page.mouse.click(1000, 400); await page.waitForSelector('#tpanel.hidden', { state: 'attached' }); assert.equal(await page.evaluate(() => __app.world.glow), null);
+  await page.locator('.trait[data-trait="Fire"]').click(); await page.locator('#tpanel .x').click(); await page.waitForSelector('#tpanel.hidden', { state: 'attached' });
+});
 await step('gộp 3 con giống nhau qua giao diện: lên 2★, tiến hóa, có hiệu ứng, không lỗi', async () => {
   const r = await page.evaluate(() => { const g = __app.match.g; g.gold = 30; g.bench.fill(null); g.board.fill(null); g.bench[0] = g.makeUnit('machop', 1); g.bench[1] = g.makeUnit('machop', 1); g.shop[2] = 'machop'; g.pool.machop--; __app.refreshView(); return true; });
   await page.locator('#shop .card').nth(2).click(); await page.locator('.toast', { hasText: '2★' }).first().waitFor({ timeout: 5000 });
@@ -190,6 +204,19 @@ for (const [name, vp] of [['dọc 390x844', { width: 390, height: 844 }], ['ngan
     const before = await state(pg); await pg.locator('#shop .card:not(.sold)').first().tap(); const after = await state(pg); assert.ok(after.gold < before.gold);
     const uid = await pg.evaluate(() => __app.match.g.boardUnits()[0].id); const p = await unitScreen(pg, uid); await pg.touchscreen.tap(p.x, p.y);
     await pg.waitForSelector('#info:not(.hidden)');
+  });
+  await step('cảm ứng: thẻ có huy hiệu; GIỮ thẻ xem thông tin mà không mua; bấm tộc mở bảng vừa màn hình', async () => {
+    await pg.evaluate(() => { const g = __app.match.g; g.gold = 20; g.bench.fill(null); g.shop = ['charmander', 'bulbasaur', 'pikachu', 'geodude', 'machop']; g.board[3] = g.makeUnit('charmander', 1); __app.refreshView(); __app.hud.hideInfo(true); });
+    const tg = await pg.evaluate(() => [...document.querySelectorAll('#shop .card')].map(c => c.querySelectorAll('.tgi').length)); assert.ok(tg.every(n => n >= 1), 'thẻ thiếu huy hiệu ' + tg);
+    const before = await state(pg); const card = pg.locator('#shop .card').nth(2); const bb = await card.boundingBox(); const pt = { clientX: bb.x + bb.width / 2, clientY: bb.y + bb.height / 2, pointerType: 'touch', pointerId: 7, isPrimary: true, bubbles: true };
+    await card.dispatchEvent('pointerdown', pt); await pg.waitForTimeout(600); await card.dispatchEvent('pointerup', pt); await card.dispatchEvent('click', pt);
+    await pg.waitForSelector('#info:not(.hidden)'); const after = await state(pg); assert.equal(after.gold, before.gold, 'giữ thẻ không được mua'); assert.equal(after.bench, before.bench);
+    assert.ok((await pg.locator('#info').innerText()).includes('Pikachu') || (await pg.locator('#info').innerText()).includes('Pichu'));
+    await shot(pg, name.startsWith('dọc') ? '13-mobile-longpress' : '14-mobile-longpress-land');
+    await pg.mouse.click(5, 5).catch(() => { }); await pg.evaluate(() => __app.hud.hideInfo(true));
+    await pg.locator('.trait').first().tap(); await pg.waitForSelector('#tpanel:not(.hidden)');
+    const box = await pg.locator('#tpanel').boundingBox(); assert.ok(box.x >= -1 && box.y >= -1 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1, 'bảng tràn màn hình ' + JSON.stringify(box));
+    await shot(pg, name.startsWith('dọc') ? '15-mobile-trait' : '16-mobile-trait-land'); await pg.locator('#tpanel .x').tap();
   });
   await step('cảm ứng: SẴN SÀNG bắt đầu trận', async () => {
     await pg.locator('#bReady').tap(); await pg.waitForFunction(() => __app.phase === 'combat', null, { timeout: 8000 }); await pg.waitForTimeout(1500);

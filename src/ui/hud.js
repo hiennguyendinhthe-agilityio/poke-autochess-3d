@@ -32,6 +32,7 @@ export class Hud {
       <div class="panel top-right" id="standings"></div>
       <div class="traits" id="traits"></div>
       <div class="panel info hidden" id="info"></div>
+      <div class="panel tpanel hidden" id="tpanel"></div>
       <div class="bottom">
         <div class="panel bag" id="bag"></div>
         <div class="shopwrap">
@@ -55,7 +56,22 @@ export class Hud {
     const a = this.app, $ = this.$;
     $('bRoll').onclick = () => a.reroll(); $('bXp').onclick = () => a.buyXp(); $('bLock').onclick = () => a.toggleLock(); $('bReady').onclick = () => a.ready();
     $('bMenu').onclick = () => a.openMenu(); $('bSpd').onclick = () => a.cycleSpeed(); $('bSkip').onclick = () => a.skipBattle();
-    $('shop').addEventListener('click', e => { const c = e.target.closest('.card'); if (c && !c.classList.contains('sold')) a.buy(+c.dataset.slot); });
+    // Chạm = mua; GIỮ nửa giây (cảm ứng) = xem thông tin, không mua
+    let lpT = null, lpFired = false, lpAt = -1e9, lpX = 0, lpY = 0;
+    const shop = $('shop');
+    shop.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'touch') return; const c = e.target.closest('.card'); if (!c || c.classList.contains('sold')) return;
+      lpFired = false; lpX = e.clientX; lpY = e.clientY; clearTimeout(lpT);
+      lpT = setTimeout(() => { lpFired = true; this.hideTip(); this.showInfo({ shop: c.dataset.key }); if (navigator.vibrate) navigator.vibrate(12); }, 380);
+    });
+    shop.addEventListener('pointermove', e => { if (lpT && Math.hypot(e.clientX - lpX, e.clientY - lpY) > 12) { clearTimeout(lpT); lpT = null; } });
+    const lpEnd = () => { clearTimeout(lpT); lpT = null; if (lpFired) lpAt = performance.now(); };
+    shop.addEventListener('pointerup', lpEnd); shop.addEventListener('pointercancel', lpEnd);
+    shop.addEventListener('contextmenu', e => e.preventDefault());
+    shop.addEventListener('click', e => {
+      if (performance.now() - lpAt < 800) { lpAt = -1e9; return; }          // bỏ qua cú click sau khi giữ
+      const c = e.target.closest('.card'); if (c && !c.classList.contains('sold')) a.buy(+c.dataset.slot);
+    });
     // chú thích khi rê chuột / chạm
     const show = e => {
       const t = e.target.closest('[data-tid]'); if (!t) return this.hideTip();
@@ -68,10 +84,16 @@ export class Hud {
     };
     this.root.addEventListener('pointerover', e => { if (e.pointerType !== 'touch') show(e); });
     this.root.addEventListener('pointerout', e => { if (e.pointerType !== 'touch' && !this.root.contains(e.relatedTarget)) this.hideTip(); else if (e.pointerType !== 'touch') { const t = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('[data-tid]'); if (!t) this.hideTip(); } });
-    this.root.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') show(e); });
+    this.root.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !e.target.closest('.trait, .tpanel')) show(e); });
     // thông tin khi trỏ vào thẻ trong cửa hàng
     $('shop').addEventListener('pointerover', e => { const c = e.target.closest('.card'); if (c && !c.classList.contains('sold') && e.pointerType !== 'touch') this.showInfo({ shop: c.dataset.key }); });
-    $('shop').addEventListener('pointerleave', () => { if (this.sel && this.sel.shop) this.hideInfo(true); });
+    $('shop').addEventListener('pointerleave', e => { if (e.pointerType !== 'touch' && this.sel && this.sel.shop) this.hideInfo(true); });
+    // bấm vào hệ/tộc: mở bảng thành viên
+    $('traits').addEventListener('click', e => { const t = e.target.closest('.trait'); if (t) { this.hideTip(); this.toggleTrait(t.dataset.trait); } });
+    $('tpanel').addEventListener('click', e => {
+      if (e.target.closest('.x')) return this.hideTrait();
+      const m = e.target.closest('.mem'); if (m) { this.traitMem = this.traitMem === m.dataset.key ? null : m.dataset.key; this.app.audio.sfx('click'); this.renderTrait(); }
+    });
     // kéo vật phẩm từ kho
     $('bag').addEventListener('pointerdown', e => {
       const s = e.target.closest('.slot.has'); if (!s) return; e.preventDefault();
@@ -111,12 +133,13 @@ export class Hud {
     g.shop.forEach((key, i) => {
       if (!key) { sh += `<div class="card sold" data-slot="${i}"></div>`; return; }
       const l = LINE[key], f = formAt(l, 1), poor = g.gold < l.cost, up = g.allUnits().filter(u => u.key === key && u.star === 1).length >= 2;
-      const tags = unitTraits(l, 1).map(t => `<span data-tid="${this.tid(`<b style=\"color:${TRAITS[t].color}\">${TRAITS[t].name}</b>`)}">${traitBadge(t, 20)}</span>`).join('');
+      const trs = unitTraits(l, 1), col = TYPE_COL[f.types[0]];
+      const tags = trs.map(t => `<span class="tgi" data-tid="${this.tid(`<b style=\"color:${TRAITS[t].color}\">${TRAITS[t].name}</b>`)}">${traitBadge(t, 20)}</span>`).join('');
       const own = owned(key);
       sh += `<div class="card c${l.cost}${poor ? ' poor' : ''}" data-slot="${i}" data-key="${key}">
-        ${up ? '<div class="up">▲ NÂNG SAO</div>' : ''}<div class="cost"><i class="coin"></i>${l.cost}</div>
-        <img class="pt" src="${portraitUrl(f.dex)}" alt="" draggable="false"><div class="nm">${esc(f.name)}</div><div class="tags">${tags}</div>
-        ${own ? `<div class="own">Có ${own}</div>` : ''}</div>`;
+        <div class="art" style="--t1:${col}dd;--t2:${col}55"><img class="pt" src="${portraitUrl(f.dex)}" alt="" draggable="false"></div>
+        <div class="tg">${tags}</div>${up ? '<div class="up">▲ NÂNG SAO</div>' : own ? `<div class="own">Có ${own}</div>` : ''}
+        <div class="bar"><span class="nm">${esc(f.name)}</span><span class="cost"><i class="coin"></i>${l.cost}</span></div></div>`;
     });
     sh += '<div class="sell" id="sell">KÉO VÀO ĐÂY ĐỂ BÁN</div>';
     this.set('shop', sh, () => { $('shop').innerHTML = sh; });
@@ -125,7 +148,7 @@ export class Hud {
     for (let i = 0; i < 10; i++) { const it = g.bag[i]; bg += it ? `<div class="slot has" data-bag="${i}" data-tid="${this.tid(itemTip(it))}">${itemIcon(it, 32)}</div>` : '<div class="slot"></div>'; }
     this.set('bag', bg, () => { $('bag').innerHTML = bg; }); $('bag').classList.toggle('hidden', false);
     this.refreshTraits(); this.refreshStandings();
-    this.refreshInfo();
+    this.refreshInfo(); if (this.traitSel) this.renderTrait();
   }
   set(k, html, fn) { if (this.last[k] === html) return; this.last[k] = html; fn(); }
 
@@ -147,7 +170,7 @@ export class Hud {
       if (r.t.flavor) tip += `<div class="fl">${esc(r.t.flavor)}</div>`;
       tip += r.t.tiers.map((x, i) => `<div class="tr ${i === r.a.tier ? 'act' : ''}"><b>${x.n}</b><span>${modsText(x.mods)}${x.mods && x.allMods ? '; ' : ''}${x.allMods ? 'cả đội: ' + modsText(x.allMods) : ''}</span></div>`).join('');
       tip += '<div class="fl" style="margin-top:5px">Thành viên: ' + membersOf(r.id).map(l => formAt(l, 1).name).join(', ') + '</div>';
-      return `<div class="trait ${r.on ? 'on' : 'off'}" style="--tc:${r.t.color}" data-tid="${this.tid(tip)}">${traitBadge(r.id, 24)}<div><div class="tn">${r.t.name}</div><div class="tt">${tiers}</div></div><div class="cnt">${r.a.count}</div></div>`;
+      return `<div class="trait ${r.on ? 'on' : 'off'}" style="--tc:${r.t.color}" data-trait="${r.id}" data-tid="${this.tid(tip)}">${traitBadge(r.id, 24)}<div><div class="tn">${r.t.name}</div><div class="tt">${tiers}</div></div><div class="cnt">${r.a.count}</div></div>`;
     }).join('');
     this.set('traits', html, () => { this.$('traits').innerHTML = html; });
   }
@@ -156,6 +179,45 @@ export class Hud {
     const html = '<h4><span>Xếp hạng</span><span>' + st.filter(x => x.alive).length + '/8</span></h4>' + st.map((p, i) =>
       `<div class="pl ${p.me ? 'me' : ''} ${p.alive ? '' : 'dead'} ${p.id === opp && p.id ? 'opp' : ''}"><span style="opacity:.6">${i + 1}</span><span class="av" style="background:${p.col}">${p.name[0]}</span><div><div class="nm">${p.name}</div><div class="hb"><i style="width:${Math.max(0, p.hp)}%;background:${p.hp < 30 ? '#ef4444' : ''}"></i></div></div><span class="hv">${p.alive ? p.hp : '☠'}</span></div>`).join('');
     this.set('standings', html, () => { this.$('standings').innerHTML = html; });
+  }
+
+  // ---------- bảng thành viên của hệ/tộc ----------
+  toggleTrait(id) { this.traitMem = null; this.traitSel = this.traitSel === id ? null : id; this.app.audio.sfx('click'); this.renderTrait(); }
+  hideTrait() { this.traitSel = null; this.traitMem = null; this.renderTrait(); }
+  renderTrait() {
+    const el = this.$('tpanel'), id = this.traitSel, w = this.app.world;
+    if (!id) { el.classList.add('hidden'); w.glow = null; return; }
+    const g = this.app.match.g, t = TRAITS[id], act = this.teamTraits()[id] || { count: 0, tier: -1 };
+    // trạng thái sở hữu của từng dòng: sân > ghế; sao cao nhất
+    const have = {};
+    for (const [zone, list] of [['bench', g.bench], ['board', g.board]]) for (const u of list) if (u) { const h = have[u.key] || (have[u.key] = { zone, star: 0, n: 0 }); h.n++; h.star = Math.max(h.star, u.star); if (zone === 'board') h.zone = 'board'; }
+    const inShop = new Set(g.shop);
+    const minStar = l => { for (let s = 1; s <= 3; s++) if (unitTraits(l, s).includes(id)) return s; return 1; };
+    const mems = membersOf(id).map(l => ({ l, ms: minStar(l) }));
+    const next = t.tiers.find(x => x.n > act.count);
+    const tiers = t.tiers.map((x, i) => `<div class="tier ${i <= act.tier ? 'reached' : ''} ${i === act.tier ? 'cur' : ''}"><b>${x.n}</b><span>${modsText(x.mods)}${x.mods && x.allMods ? '; ' : ''}${x.allMods ? 'cả đội: ' + modsText(x.allMods) : ''}</span></div>`).join('');
+    const grid = mems.map(({ l, ms }) => {
+      const h = have[l.key], st = h ? h.zone : inShop.has(l.key) ? 'shop' : 'none', f = formAt(l, ms);
+      const lbl = st === 'board' ? 'Sân' : st === 'bench' ? 'Ghế' : st === 'shop' ? 'Cửa hàng' : '';
+      return `<div class="mem st-${st} ${this.traitMem === l.key ? 'sel' : ''}" style="--mc:${COST_COL[l.cost]}" data-key="${l.key}">
+        <img src="${portraitUrl(f.dex)}" alt="">${h ? `<span class="ms">${'★'.repeat(h.star)}</span>` : ''}${ms > 1 ? `<span class="mn">★${ms}+</span>` : ''}${lbl ? `<div class="ml">${lbl}</div>` : ''}</div>`;
+    }).join('');
+    let detail = '';
+    if (this.traitMem) {
+      const l = LINE[this.traitMem], ms = minStar(l), h = have[l.key], ab = abilityText(l, 1), names = [1, 2, 3].map(s => formAt(l, s)).filter((f, i, a) => i === 0 || f.dex !== a[i - 1].dex);
+      detail = `<div class="tdetail"><b style="color:${COST_COL[l.cost]}">● Giá ${l.cost}</b> · <b>${names.map(f => esc(f.name)).join(' › ')}</b>${ms > 1 ? `<div style="opacity:.8">Mang ${t.name} từ dạng ${esc(formAt(l, ms).name)} (${ms}★)</div>` : ''}
+        <div class="row" style="display:flex;gap:3px;flex-wrap:wrap;margin:4px 0">${[...new Set([1, 2, 3].flatMap(s => unitTraits(l, s)))].map(x => typeChip(x)).join('')}</div>
+        ${ab ? `<div><b style="color:${TYPE_COL[ab.type]}">✦ ${ab.name}</b>: ${ab.text}</div>` : ''}<div style="opacity:.8;margin-top:3px">${h ? `Bạn có ${h.n} con (cao nhất ${h.star}★), đang ở ${h.zone === 'board' ? 'sân' : 'băng ghế'}` : g.shop.includes(l.key) ? 'Đang bán ở cửa hàng' : 'Bạn chưa có'}</div></div>`;
+    }
+    el.innerHTML = `<div class="th">${traitBadge(id, 28)}<div><h3 style="color:${t.color}">${t.name}</h3><div style="font-size:11px;opacity:.7">${t.kind === 'anime' ? 'Tộc' : 'Hệ'} · ${mems.length} Pokémon</div></div><span class="x">✕</span></div>
+      ${t.flavor ? `<div class="fl">${esc(t.flavor)}</div>` : ''}${tiers}
+      <div class="prog">Trên sân: ${act.count}${next ? ` · cần ${next.n} để mở mốc tiếp theo` : ' · đã đạt mốc cao nhất'}</div>
+      ${detail}<div class="mems">${grid}</div>`;
+    el.classList.remove('hidden');
+    // viền sáng dưới chân Pokémon của bạn thuộc hệ/tộc này
+    const keys = new Set();
+    for (const [zone, list] of [['board', g.board], ['bench', g.bench]]) for (const u of list) if (u && unitTraits(LINE[u.key], u.star).includes(id)) keys.add('u' + u.id);
+    w.glow = { keys, col: t.color };
   }
 
   // ---------- thông tin Pokémon ----------

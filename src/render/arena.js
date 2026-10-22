@@ -170,6 +170,7 @@ export class Arena {
   padGlow(i, on) { const p = this.benchPads[i]; if (p) p.ring.material.color.set(on ? '#ffe14a' : '#ff4a4a'); }
 
   update(dt, t) {
+    if (this.hl.visible) { this.hl.material.opacity = .42 + .22 * Math.sin(t * 7); }
     for (const r of this.rocks) r.position.y = r.userData.base.y + Math.sin(t * .6 + r.userData.ph) * .25;
     for (const c of this.clouds) { c.position.x += c.userData.sp * dt; if (c.position.x > 30) c.position.x = -30; }
     const p = this.motes.geometry.attributes.position;

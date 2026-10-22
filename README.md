@@ -18,6 +18,7 @@ Mua Pokémon, xếp đội hình, gộp 3 con để **lên sao và tiến hóa**
 | 3D | Three.js: đảo nổi, **bàn cờ lục giác** 8x8 (di chuyển từng ô, tầm đánh đo bằng số ô), hàng ghế chờ, sprite 8 hướng, hiệu ứng hạt/tia/vòng sóng theo hệ, 6 chủ đề sân đấu |
 | Model 3D | Nhân vật mặc định là sprite billboard trong cảnh 3D. Nếu bạn tự có model `.glb`, thả vào `public/models/` + `manifest.json` để thay sprite ([hướng dẫn](public/models/README.md)) |
 | Âm thanh | **Tự tổng hợp** bằng Web Audio: nhạc nền theo giai đoạn, hiệu ứng theo hệ, tiếng kêu riêng cho từng Pokémon. Hỗ trợ thả file âm thanh riêng ([hướng dẫn](public/audio-user/README.md)) |
+| Giao diện | Thẻ cửa hàng kiểu TFT (cột huy hiệu hệ/tộc, khung theo giá). **Chạm = mua, giữ = xem thông tin** (cảm ứng); **bấm vào hệ/tộc** để xem mọi Pokémon thuộc hệ/tộc đó (đang có ở sân/ghế/cửa hàng) và viền sáng các con liên quan trên sân. Bloom nhẹ và vignette ở chế độ "Sắc nét" |
 | Tiện ích | Danh mục Pokémon, 3 mức độ khó, tự lưu và tiếp tục, tăng tốc trận x1/x2/x4, cài như app (PWA) và chơi offline, hỗ trợ cảm ứng |
 
 ## Chơi thế nào

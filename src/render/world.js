@@ -1,5 +1,9 @@
 // World: scene 3D, camera, nhân vật, hiệu ứng, lớp phủ 2D (thanh máu, số sát thương), chọn/kéo-thả.
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Arena, THEMES, benchPos, boardPos, BENCH_Z } from './arena.js';
 import { FX } from './fx.js';
 import { Actor, preload } from './sprites.js';
@@ -56,8 +60,21 @@ export class World {
     this.camBase.set(BW / 2, Math.sin(elev) * d, this.camLook.z + Math.cos(elev) * d);
     this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook);
     this.camera.setViewOffset(w, h, 0, (ins.bottom - ins.top) / 2, w, h);
+    if (this.composer) { this.composer.setPixelRatio(dpr); this.composer.setSize(w, h); }
     this.camera.updateProjectionMatrix();
     this.uiScale = Math.max(.72, Math.min(1.35, Math.min(w / 900, h / 620)));
+  }
+
+  // Bloom nhẹ: chỉ các vùng RẤT sáng (tia, đòn trúng, vụ nổ cộng dồn) mới toả sáng. Tắt ở chế độ tiết kiệm pin.
+  setBloom(on) {
+    if (!on) { this.composer = null; return; }
+    if (!this.composer) {
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(this.w || 512, this.h || 512), .38, .55, .96);
+      this.composer.addPass(this.bloom); this.composer.addPass(new OutputPass());
+    }
+    this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(this.w, this.h);
   }
 
   setInset(top, bottom) {
@@ -281,7 +298,7 @@ export class World {
     }
     // texture: bao gồm xoay nhẹ camera lúc chờ cho "3D" hơn
     if (this.mode === 'prep' && !this.drag) { const sw = Math.sin(this.time * .25) * .5; this.camera.position.x += sw; this.camera.lookAt(this.camLook); }
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
     this.drawOverlay(dt);
   }
 
@@ -320,6 +337,12 @@ export class World {
     }
     // vòng sáng dưới chân Pokémon sắp nhận vật phẩm
     if (this.hot) { const v = this.views.get(this.hot); if (v) { const p = this.project(v.x, 0, v.z); g.strokeStyle = '#ffe14a'; g.lineWidth = 3 * u; g.beginPath(); g.ellipse(p.x, p.y, 28 * u, 12 * u, 0, 0, 7); g.stroke(); } }
+    // viền sáng nhấp nháy dưới chân các Pokémon thuộc hệ/tộc đang xem
+    if (this.glow) {
+      const pulse = .5 + .5 * Math.sin(this.time * 5); g.strokeStyle = this.glow.col; g.lineWidth = (2.2 + pulse * 1.6) * u; g.globalAlpha = .55 + .45 * pulse;
+      for (const key of this.glow.keys) { const v = this.views.get(key); if (!v || !v.actor.group.visible) continue; const p = this.project(v.x, 0, v.z); g.beginPath(); g.ellipse(p.x, p.y, 27 * u, 11.5 * u, 0, 0, 7); g.stroke(); }
+      g.globalAlpha = 1;
+    }
     // chữ nổi
     for (let i = this.texts.length - 1; i >= 0; i--) {
       const t = this.texts[i]; t.t += dt; if (t.t >= t.life) { this.texts.splice(i, 1); continue; }

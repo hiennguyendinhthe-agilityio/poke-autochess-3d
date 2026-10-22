@@ -28,6 +28,7 @@ export class App {
     this.audio = new Audio();
     this.world = new World(root);
     this.applyQuality();
+    const vg = document.createElement('div'); vg.id = 'vignette'; root.appendChild(vg);
     const hudRoot = document.createElement('div'); hudRoot.id = 'hud'; root.appendChild(hudRoot);
     const scrRoot = document.createElement('div'); scrRoot.id = 'screens'; root.appendChild(scrRoot);
     this.hudRoot = hudRoot;
@@ -49,7 +50,7 @@ export class App {
 
   // ---------- thiết lập / lưu ----------
   saveSettings() { store.set(SET, this.settings); }
-  applyQuality() { this.world.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.settings.dpr)); this.world.resize(); }
+  applyQuality() { this.world.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.settings.dpr)); this.world.resize(); this.world.setBloom(this.settings.dpr >= 2); }
   hasSave() { const s = store.get(SAVE); return s && !s.over && s.v === 1 ? s : null; }
   saveGame() { if (this.match && !this.match.g.over) store.set(SAVE, this.match.g.toJSON()); }
   wipe() { store.del(SAVE); store.del(BEST); }

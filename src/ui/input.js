@@ -29,7 +29,7 @@ export class Input {
       const ev = a.world.pickUnit(e.clientX, e.clientY, 1);
       this.cand = null;
       if (ev && ev.key[0] === 'e') { const id = +ev.key.slice(1); a.hud.showInfo({ enemy: id }); return; }
-      a.hud.hideInfo(true);
+      a.hud.hideInfo(true); if (a.hud.traitSel) a.hud.hideTrait();
     }
   }
   move(e) {
