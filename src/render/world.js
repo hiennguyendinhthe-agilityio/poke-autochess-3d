@@ -7,6 +7,7 @@ import { TYPE_COL } from '../data/types.js';
 import { LINE, formAt, FORMS } from '../data/roster.js';
 import { cryText } from '../data/cries.js';
 import { resolveSpec, cellPos } from '../sim/battle.js';
+import { nearestCell, W as BW, RAD } from '../sim/hex.js';
 
 const STAR_COL = ['', '#ffffff', '#ffd24a', '#ff6ad5'];
 const ease = (a, b, k) => a + (b - a) * k;
@@ -48,11 +49,11 @@ export class World {
     const fov = this.camera.fov * Math.PI / 180, aspect = w / h;
     // phần màn hình bị HUD chiếm (trên/dưới): cảnh được co lại và dịch để nằm gọn trong vùng còn trống
     const ins = this.inset || { top: 0, bottom: 0 }, effH = Math.max(220, h - ins.top - ins.bottom);
-    const needW = 5.0 / (Math.tan(fov / 2) * aspect), needH = (portrait ? 4.4 : 3.75) / Math.tan(fov / 2) * (h / effH);
+    const needW = 5.2 / (Math.tan(fov / 2) * aspect), needH = (portrait ? 4.0 : 3.45) / Math.tan(fov / 2) * (h / effH);
     const d = Math.max(needW, needH);
     const elev = (portrait ? 48 : 42) * Math.PI / 180;
-    this.camLook.set(4, 0, portrait ? 5.1 : 5.0);
-    this.camBase.set(4, Math.sin(elev) * d, this.camLook.z + Math.cos(elev) * d);
+    this.camLook.set(BW / 2, 0, portrait ? 4.5 : 4.35);
+    this.camBase.set(BW / 2, Math.sin(elev) * d, this.camLook.z + Math.cos(elev) * d);
     this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook);
     this.camera.setViewOffset(w, h, 0, (ins.bottom - ins.top) / 2, w, h);
     this.camera.updateProjectionMatrix();
@@ -361,8 +362,9 @@ export class World {
   // ô tại điểm màn hình: { zone:'board', idx } | { zone:'bench', idx } | null
   pickCell(cx, cy) {
     const p = this.groundPoint(cx, cy); if (!p) return null;
-    if (p.x >= 0 && p.x < 8 && p.z >= 4 && p.z < 8) return { zone: 'board', idx: Math.floor(p.z - 4) * 8 + Math.floor(p.x), pos: boardPos(Math.floor(p.x), Math.floor(p.z - 4)) };
-    if (p.z >= BENCH_Z - .7 && p.z <= BENCH_Z + .75 && p.x > -.4 && p.x < 8.4) {
+    const n = nearestCell(p.x, p.z);
+    if (n && n.r >= 4 && n.d2 <= .34) return { zone: 'board', idx: (n.r - 4) * 8 + n.c, pos: boardPos(n.c, n.r - 4) };
+    if (p.z >= BENCH_Z - .7 && p.z <= BENCH_Z + .75 && p.x > -.4 && p.x < BW + .4) {
       let bi = 0, bd = 1e9; for (let i = 0; i < 9; i++) { const d = Math.abs(benchPos(i).x - p.x); if (d < bd) { bd = d; bi = i; } }
       return { zone: 'bench', idx: bi, pos: benchPos(bi) };
     }

@@ -1,18 +1,20 @@
 // Engine chiến đấu tự động. Thuần logic (không DOM/Three.js) nên chạy được trong Node để test và mô phỏng bot.
-// Toạ độ: x 0..8 (trái -> phải), z 0..8. Đội 0 (người chơi) ở nửa dưới z 4..8, đội 1 ở nửa trên z 0..4.
+// Bàn cờ lục giác 8x8 (xem hex.js). Mỗi Pokémon chiếm 1 ô, di chuyển từng ô, tầm đánh đo bằng số ô.
+// Toạ độ thế giới (x, z) dùng cho hiển thị, hiệu ứng vùng và đạn. Đội 0 (người chơi) ở nửa dưới, đội 1 ở nửa trên.
 import { rawEff, effMult } from '../data/types.js';
 import { LINE, baseStats, formAt, unitTraits, skillAt, wildDef } from '../data/roster.js';
 import { TRAITS, calcTraits } from '../data/traits.js';
 import { ITEMS } from '../data/items.js';
 import { ABILITY_KINDS } from './ability-kinds.js';
 import { mulberry32 } from './rng.js';
+import { COLS, CELLS, NB, center, idx, toGlobal, dist as hexDist } from './hex.js';
 
 export const DT = 1 / 30;
 const SUDDEN_AT = 32, HARD_CAP = 80;
 const SELF_CAST = new Set(['heal', 'shield', 'rally', 'counter', 'splash', 'leap', 'blink', 'meteor']);
 
 // Toạ độ thế giới từ ô của đội: hàng 0 = sát đối thủ
-export function cellPos(team, c, r) { return team === 0 ? { x: c + .5, z: 4.5 + r } : { x: 7.5 - c, z: 3.5 - r }; }
+export function cellPos(team, c, r) { const g = toGlobal(team, c, r); return center(g.c, g.r); }
 
 const sumMods = list => {
   const o = {};
@@ -40,7 +42,7 @@ export class Battle {
     this.emit = events;
     this.ev = [];
     this.t = 0; this.tick = 0;
-    this.f = []; this.proj = []; this.zones = [];
+    this.f = []; this.proj = []; this.zones = []; this.grid = Array(CELLS).fill(null);
     this.winner = null; this.over = false;
     this.nextId = 1;
     const defs = specs.map(s => ({ s, d: resolveSpec(s) }));
@@ -50,7 +52,7 @@ export class Battle {
       const us = defs.filter(x => x.s.team === team && !x.s.wild).map(x => ({ key: x.s.key, traits: x.d.traits }));
       active[team] = calcTraits(us);
     }
-    for (const { s, d } of defs) this.f.push(this.make(s, d, active[s.team]));
+    for (const { s, d } of defs) { const f = this.make(s, d, active[s.team]); this.f.push(f); this.grid[idx(f.hc, f.hr)] = f; }
     this.active = active;
     // khiên đầu trận
     for (const f of this.f) if (f.m.shieldPct) { f.shield = f.maxHp * f.m.shieldPct; f.shieldUntil = 12; }
@@ -66,11 +68,11 @@ export class Battle {
     }
     for (const it of (s.items || [])) if (ITEMS[it]) mods.push(ITEMS[it].mods);
     const m = sumMods(mods);
-    const b = d.base, pos = cellPos(s.team, s.cell.c, s.cell.r);
+    const b = d.base, g = toGlobal(s.team, s.cell.c, s.cell.r), pos = center(g.c, g.r);
     const maxHp = Math.round(b.hp * (1 + (m.hpPct || 0)));
     return {
       id: s.id, team: s.team, key: s.key || ('wild_' + s.wild), star: s.star || 1, dex: d.form.dex, name: d.form.name, types: d.form.types, line: d.line,
-      x: pos.x, z: pos.z, fx: 0, fz: s.team === 0 ? -1 : 1,
+      x: pos.x, z: pos.z, hc: g.c, hr: g.r, mv: null, fx: 0, fz: s.team === 0 ? -1 : 1,
       hp: maxHp, maxHp, shield: 0, shieldUntil: 0, alive: true,
       b, m, base: b, atkPct0: m.atkPct || 0,
       mana: Math.min(b.manaMax || 0, (b.manaStart || 0) + (m.manaStart || 0)), manaMax: b.manaMax,
@@ -91,8 +93,39 @@ export class Battle {
   foes(f) { return this.f.filter(o => o.alive && o.team !== f.team); }
   friends(f) { return this.f.filter(o => o.alive && o.team === f.team); }
   dist(a, b) { return Math.hypot(a.x - b.x, a.z - b.z); }
-  nearest(f, list) { let best = null, bd = 1e9; for (const o of list) { const d = this.dist(f, o); if (d < bd - 1e-6 || (Math.abs(d - bd) < 1e-6 && best && o.id < best.id)) { bd = d; best = o; } } return best; }
-  reach(f) { return f.b.range + .55; }
+  // khoảng cách theo số ô giữa hai Pokémon
+  hd(a, b) { return hexDist(a.hc, a.hr, b.hc, b.hr); }
+  nearest(f, list) { let best = null, bd = 1e9; for (const o of list) { const d = this.hd(f, o) + Math.hypot(f.x - o.x, f.z - o.z) * 1e-3; if (d < bd - 1e-9 || (Math.abs(d - bd) < 1e-9 && best && o.id < best.id)) { bd = d; best = o; } } return best; }
+  reach(f) { return f.b.range; }
+  free(i) { return !this.grid[i]; }
+  // chuyển sang ô i: giải phóng ô cũ, giữ chỗ ô mới ngay (tránh hai Pokémon cùng bước vào một ô)
+  claim(f, i) { this.grid[idx(f.hc, f.hr)] = null; this.grid[i] = f; f.hc = i % COLS; f.hr = (i / COLS) | 0; }
+  beginMove(f, i) {
+    this.claim(f, i); const p = center(f.hc, f.hr), dx = p.x - f.x, dz = p.z - f.z, L = Math.hypot(dx, dz) || 1;
+    f.mv = { x0: f.x, z0: f.z, x1: p.x, z1: p.z, p: 0 }; f.fx = dx / L; f.fz = dz / L; f.moving = true;
+  }
+  // Đi một ô về phía `tg` cho tới khi vào tầm `range` (BFS qua các ô trống). Trả về true nếu đã bắt đầu bước.
+  stepToward(f, tg, range) {
+    const start = idx(f.hc, f.hr), prev = new Int16Array(CELLS).fill(-2); prev[start] = -1;
+    const q = [start]; let goal = -1;
+    for (let h = 0; h < q.length; h++) {
+      const cur = q[h];
+      if (cur !== start && hexDist(cur % COLS, (cur / COLS) | 0, tg.hc, tg.hr) <= range) { goal = cur; break; }
+      for (const n of NB[cur]) if (prev[n] === -2 && !this.grid[n]) { prev[n] = cur; q.push(n); }
+    }
+    if (goal >= 0) { let c = goal; while (prev[c] !== start) c = prev[c]; this.beginMove(f, c); return true; }
+    // bị chặn kín: nhích sang ô trống gần mục tiêu hơn nếu có
+    let best = -1, bd = hexDist(f.hc, f.hr, tg.hc, tg.hr);
+    for (const n of NB[start]) if (!this.grid[n]) { const d = hexDist(n % COLS, (n / COLS) | 0, tg.hc, tg.hr); if (d < bd) { bd = d; best = n; } }
+    if (best >= 0) { this.beginMove(f, best); return true; }
+    return false;
+  }
+  // ô trống kề `o` tốt nhất theo `score` (nhỏ hơn là tốt hơn); -1 nếu không có
+  freeNeighbor(o, score) {
+    let best = -1, bs = 1e9;
+    for (const n of NB[idx(o.hc, o.hr)]) if (!this.grid[n]) { const sc = score(n) + n * 1e-6; if (sc < bs) { bs = sc; best = n; } }
+    return best;
+  }
 
   refresh(f) {
     const m = f.m;
@@ -165,7 +198,8 @@ export class Battle {
 
   kill(f, src) {
     if (!f.alive) return;
-    f.alive = false; f.hp = 0; f.cast = null; f.wind = null; f.leap = null;
+    f.alive = false; f.hp = 0; f.cast = null; f.wind = null; f.leap = null; f.mv = null;
+    if (this.grid[idx(f.hc, f.hr)] === f) this.grid[idx(f.hc, f.hr)] = null;
     if (src && src.alive) src.kills++;
     this.push({ t: 'death', id: f.id, x: f.x, z: f.z });
     const de = f.m.deathExplode;
@@ -197,7 +231,6 @@ export class Battle {
     for (const p of this.proj) this.stepProj(p, dt);
     if (this.proj.length) this.proj = this.proj.filter(p => !p.done);
     for (const f of this.f) if (f.alive) this.update(f, dt);
-    this.separate();
     // sudden death
     if (this.t > SUDDEN_AT) {
       const rate = .004 * (this.t - SUDDEN_AT);
@@ -254,6 +287,13 @@ export class Battle {
       if (k >= 1) { f.leap = null; this.landLeap(f, l); }
       return;
     }
+    // đang bước sang ô kế (không làm gì khác cho tới khi tới nơi)
+    if (f.mv) {
+      const m = f.mv; m.p += dt * f.msE; const k = Math.min(1, m.p);
+      f.x = m.x0 + (m.x1 - m.x0) * k; f.z = m.z0 + (m.z1 - m.z0) * k; f.moving = true;
+      if (k >= 1) f.mv = null;
+      return;
+    }
     // đang niệm kỹ năng
     if (f.cast) { f.cast.t -= dt; if (f.cast.t <= 0) { const c = f.cast; f.cast = null; this.resolve(f, c); f.recover = .2; } return; }
     // đang vung đòn
@@ -264,16 +304,15 @@ export class Battle {
     if (!tg || !tg.alive) tg = null;
     const foes = this.foes(f);
     if (!foes.length) return;
-    if (!tg || this.dist(f, tg) > this.reach(f) + .01) { const n = this.nearest(f, foes); if (n !== tg) tg = n; }
+    if (!tg || this.hd(f, tg) > this.reach(f)) { const n = this.nearest(f, foes); if (n !== tg) tg = n; }
     f.target = tg.id;
-    const d = this.dist(f, tg);
-    f.fx = (tg.x - f.x) / (d || 1); f.fz = (tg.z - f.z) / (d || 1);
+    const d = this.hd(f, tg), de = Math.hypot(tg.x - f.x, tg.z - f.z) || 1;
+    f.fx = (tg.x - f.x) / de; f.fz = (tg.z - f.z) / de;
     // kỹ năng: đủ năng lượng thì tiến lại cho tới khi chiêu trúng đích rồi mới tung (không đánh thường lãng phí)
     if (f.ability && f.manaMax && f.mana >= f.manaMax) {
       const cr = this.castRange(f);
       if (d <= cr) { this.startCast(f, tg); return; }
-      const s = f.msE * dt, k = Math.min(1, s / d);
-      f.x += (tg.x - f.x) * k; f.z += (tg.z - f.z) * k; f.moving = true;
+      this.stepToward(f, tg, cr);
       return;
     }
     if (d <= this.reach(f)) {
@@ -282,10 +321,7 @@ export class Battle {
         f.atkT = 1 / f.asE;
         this.push({ t: 'atk', id: f.id, tid: tg.id, ranged: f.b.range >= 2, type: f.types[0] });
       }
-    } else {
-      const s = f.msE * dt, k = Math.min(1, s / d);
-      f.x += (tg.x - f.x) * k; f.z += (tg.z - f.z) * k; f.moving = true;
-    }
+    } else this.stepToward(f, tg, this.reach(f));
   }
 
   strike(f, w) {
@@ -308,8 +344,8 @@ export class Battle {
   // tầm tung chiêu: chiêu nổ quanh người phải có kẻ địch trong bán kính; chiêu tự thân/nhảy tung được từ xa
   castRange(f) {
     const kind = f.ability.kind;
-    if (kind === 'nova' || kind === 'quake') return ABILITY_KINDS[kind].nums(this.pow(f)).radius * .9;
-    return SELF_CAST.has(kind) ? 7 : this.reach(f) + .2;
+    if (kind === 'nova' || kind === 'quake') return Math.round(ABILITY_KINDS[kind].nums(this.pow(f)).radius);   // số ô
+    return SELF_CAST.has(kind) ? 99 : this.reach(f);
   }
   magic(f, o, dmg) { return this.damage(f, o, dmg, { kind: 'mag', type: f.ability.type, ability: true }); }
 
@@ -370,19 +406,21 @@ export class Battle {
         break;
       }
       case 'leap': {
-        const far = this.foes(f).reduce((b, o) => !b || this.dist(f, o) > this.dist(f, b) ? o : b, null);
-        const dx = far.x - f.x, dz = far.z - f.z, L = Math.hypot(dx, dz) || 1;
-        // đáp xuống sát mục tiêu, phía mình
-        f.leap = { x0: f.x, z0: f.z, x1: far.x - dx / L * .9, z1: far.z - dz / L * .9, t: 0, dur: Math.max(.3, Math.min(.6, L / 12)), tid: far.id, n };
-        this.push({ t: 'fx', k: 'leap', type, x: f.x, z: f.z, tx: far.x, tz: far.z, id: f.id });
+        // nhảy tới ô trống kề kẻ địch xa nhất (phía gần mình nhất)
+        const far = this.foes(f).reduce((b, o) => !b || this.hd(f, o) > this.hd(f, b) ? o : b, null);
+        const cell = this.freeNeighbor(far, i => hexDist(i % COLS, (i / COLS) | 0, f.hc, f.hr));
+        if (cell < 0) { f.mana = Math.round(f.manaMax * .5); break; }       // không còn chỗ đáp: hoàn nửa năng lượng
+        const x0 = f.x, z0 = f.z; this.claim(f, cell); const p = center(f.hc, f.hr), L = Math.hypot(p.x - x0, p.z - z0);
+        f.leap = { x0, z0, x1: p.x, z1: p.z, t: 0, dur: Math.max(.3, Math.min(.6, L / 12)), tid: far.id, n };
+        this.push({ t: 'fx', k: 'leap', type, x: x0, z: z0, tx: far.x, tz: far.z, id: f.id });
         break;
       }
       case 'blink': {
-        const foes = this.foes(f);
-        const o = foes.reduce((b, x) => !b || x.hp < b.hp ? x : b, null);
+        // dịch chuyển ra sau lưng kẻ địch yếu nhất (ô trống kề xa phía mình nhất)
+        const o = this.foes(f).reduce((b, x) => !b || x.hp < b.hp ? x : b, null);
         this.push({ t: 'fx', k: 'blink', type, x: f.x, z: f.z, tx: o.x, tz: o.z, id: f.id });
-        const away = f.team === 0 ? -1 : 1;
-        f.x = Math.max(.4, Math.min(7.6, o.x)); f.z = Math.max(.4, Math.min(7.6, o.z + away * .8));
+        const cell = this.freeNeighbor(o, i => -hexDist(i % COLS, (i / COLS) | 0, f.hc, f.hr));
+        if (cell >= 0) { this.claim(f, cell); const p = center(f.hc, f.hr); f.x = p.x; f.z = p.z; }
         f.target = o.id; this.magic(f, o, n.dmg);
         break;
       }
@@ -435,24 +473,6 @@ export class Battle {
     this.push({ t: 'fx', k: 'quake', type, x: f.x, z: f.z, rad: n.radius });
     for (const o of this.foes(f)) if (Math.hypot(o.x - f.x, o.z - f.z) <= n.radius) { this.magic(f, o, n.dmg); this.stunF(o, n.stun); }
     f.target = l.tid; f.recover = .15;
-  }
-
-  separate() {
-    const R = .62;
-    for (let i = 0; i < this.f.length; i++) {
-      const a = this.f[i]; if (!a.alive || a.leap) continue;
-      for (let j = i + 1; j < this.f.length; j++) {
-        const b = this.f[j]; if (!b.alive || b.leap) continue;
-        const dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz;
-        if (d2 < R * R) {
-          const d = Math.sqrt(d2) || .001, push = (R - d) * .5;
-          let nx = dx / d, nz = dz / d;
-          if (d < .001) { nx = (a.id < b.id ? 1 : -1); nz = 0; }
-          a.x -= nx * push; a.z -= nz * push; b.x += nx * push; b.z += nz * push;
-        }
-      }
-    }
-    for (const f of this.f) if (f.alive) { f.x = Math.max(.35, Math.min(7.65, f.x)); f.z = Math.max(.35, Math.min(7.65, f.z)); }
   }
 }
 

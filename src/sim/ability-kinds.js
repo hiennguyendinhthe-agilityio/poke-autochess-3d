@@ -40,7 +40,7 @@ export const ABILITY_KINDS = {
     desc: n => `Dịch chuyển ra sau lưng kẻ địch yếu nhất, gây ${n.dmg} sát thương.`
   },
   quake: {
-    mana: 60, cast: .5, nums: p => ({ dmg: r(p * .95), radius: 1.8, stun: 1 }),
+    mana: 60, cast: .5, nums: p => ({ dmg: r(p * .95), radius: 2.05, stun: 1 }),
     desc: n => `Dậm đất: ${n.dmg} sát thương vùng quanh mình và choáng ${n.stun}s.`
   },
   heal: {

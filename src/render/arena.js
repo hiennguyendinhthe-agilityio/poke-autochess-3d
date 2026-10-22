@@ -1,9 +1,10 @@
-// Đấu trường 3D: bàn cờ 8x8, hàng ghế chờ, đảo nổi, bầu trời, trang trí theo chủ đề.
+// Đấu trường 3D: bàn cờ LỤC GIÁC 8x8, hàng ghế chờ, đảo nổi, bầu trời, trang trí theo chủ đề.
 import * as THREE from 'three';
+import { center, W, RAD, END_Z, MID_Z, BENCH_Z as BZ, COLS } from '../sim/hex.js';
 
-export const BENCH_Z = 9.05;
-export const benchPos = i => ({ x: .5 + i * (7 / 8), z: BENCH_Z });
-export const boardPos = (c, r) => ({ x: c + .5, z: 4.5 + r });     // ô của người chơi: hàng 0 sát đối thủ
+export const BENCH_Z = BZ;
+export const benchPos = i => ({ x: .5 + i * ((W - 1) / 8), z: BENCH_Z });
+export const boardPos = (c, r) => center(c, 4 + r);     // ô của người chơi: hàng 0 sát đối thủ
 
 export const THEMES = {
   grass: { name: 'Đồng cỏ', tiles: ['#6fb26a', '#5da25a'], foe: ['#78b4c4', '#68a4b4'], rim: '#3b7d3a', side: '#4a3a2a', sky: ['#5fb8ff', '#d8f2ff'], fog: '#cdeaff', accent: '#8dff8a', decor: 'trees' },
@@ -22,7 +23,7 @@ export class Arena {
     this.themeName = null;
     this.buildLights(); this.buildBoard(); this.buildBench(); this.buildIsland(); this.buildSky(); this.buildAmbient();
     this.decor = new THREE.Group(); this.group.add(this.decor);
-    this.hl = new THREE.Mesh(new THREE.BoxGeometry(.98, .04, .98), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .5, depthWrite: false }));
+    this.hl = new THREE.Mesh(new THREE.CylinderGeometry(RAD * .96, RAD * .96, .04, 6), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .5, depthWrite: false }));
     this.hl.visible = false; this.hl.position.y = .02; this.group.add(this.hl);
     this.setTheme('grass');
   }
@@ -33,18 +34,19 @@ export class Arena {
   }
 
   buildBoard() {
-    const geo = new THREE.BoxGeometry(.96, .16, .96);
+    // mỗi ô là một lăng trụ lục giác (đỉnh nhọn hướng +z), chừa khe nhỏ giữa các ô
+    const geo = new THREE.CylinderGeometry(RAD * .94, RAD * .94, .16, 6);
     this.tiles = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: .85, metalness: .02 }), 64);
     const m = new THREE.Matrix4();
-    for (let z = 0; z < 8; z++) for (let x = 0; x < 8; x++) { m.makeTranslation(x + .5, -.08, z + .5); this.tiles.setMatrixAt(z * 8 + x, m); this.tiles.setColorAt(z * 8 + x, col('#fff')); }
+    for (let r = 0; r < 8; r++) for (let c = 0; c < COLS; c++) { const p = center(c, r); m.makeTranslation(p.x, -.08, p.z); this.tiles.setMatrixAt(r * 8 + c, m); this.tiles.setColorAt(r * 8 + c, col('#fff')); }
     this.group.add(this.tiles);
-    this.frame = new THREE.Mesh(new THREE.BoxGeometry(8.5, .28, 8.5), new THREE.MeshStandardMaterial({ roughness: .9 }));
-    this.frame.position.set(4, -.28, 4); this.group.add(this.frame);
-    this.rim = new THREE.Mesh(new THREE.BoxGeometry(8.7, .12, 8.7), new THREE.MeshStandardMaterial({ roughness: .6 }));
-    this.rim.position.set(4, -.12, 4); this.group.add(this.rim);
+    this.frame = new THREE.Mesh(new THREE.BoxGeometry(W + .45, .28, END_Z + .35), new THREE.MeshStandardMaterial({ roughness: .9 }));
+    this.frame.position.set(W / 2, -.28, END_Z / 2); this.group.add(this.frame);
+    this.rim = new THREE.Mesh(new THREE.BoxGeometry(W + .65, .12, END_Z + .55), new THREE.MeshStandardMaterial({ roughness: .6 }));
+    this.rim.position.set(W / 2, -.12, END_Z / 2); this.group.add(this.rim);
     // vạch giữa sân phát sáng
-    this.mid = new THREE.Mesh(new THREE.PlaneGeometry(8.2, .08).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: .55, depthWrite: false }));
-    this.mid.position.set(4, .012, 4); this.group.add(this.mid);
+    this.mid = new THREE.Mesh(new THREE.PlaneGeometry(W + .1, .08).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ transparent: true, opacity: .55, depthWrite: false }));
+    this.mid.position.set(W / 2, .012, MID_Z); this.group.add(this.mid);
   }
 
   buildBench() {
@@ -57,19 +59,19 @@ export class Arena {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(.32, .035, 8, 28).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff4a4a' }));
       ring.position.set(bp.x, .008, bp.z); this.bench.add(p, ring); this.benchPads.push({ p, ring });
     }
-    const base = new THREE.Mesh(new THREE.BoxGeometry(8.6, .2, 1.0), new THREE.MeshStandardMaterial({ roughness: .9 }));
-    base.position.set(4, -.2, BENCH_Z); this.bench.add(base); this.benchBase = base;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(W + .2, .2, 1.0), new THREE.MeshStandardMaterial({ roughness: .9 }));
+    base.position.set(W / 2, -.2, BENCH_Z); this.bench.add(base); this.benchBase = base;
     this.group.add(this.bench);
   }
 
   buildIsland() {
     const mat = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true });
     this.islandMat = mat;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(5.2, 5, 7), mat); cone.rotation.x = Math.PI; cone.position.set(4, -3, 4.3); this.group.add(cone);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(5.2, 5, 7), mat); cone.rotation.x = Math.PI; cone.position.set(W / 2, -3, END_Z / 2); this.group.add(cone);
     this.rocks = [];
     for (let i = 0; i < 6; i++) {
       const r = new THREE.Mesh(new THREE.DodecahedronGeometry(.5 + (i % 3) * .25, 0), mat);
-      const a = i * 1.05 + .4; r.position.set(4 + Math.cos(a) * (6.6 + (i % 2)), -2 - (i % 3) * .8, 4.5 + Math.sin(a) * (5 + (i % 2))); r.userData.base = r.position.clone(); r.userData.ph = i;
+      const a = i * 1.05 + .4; r.position.set(W / 2 + Math.cos(a) * (6.6 + (i % 2)), -2 - (i % 3) * .8, END_Z / 2 + .2 + Math.sin(a) * (5 + (i % 2))); r.userData.base = r.position.clone(); r.userData.ph = i;
       this.group.add(r); this.rocks.push(r);
     }
   }
@@ -107,9 +109,11 @@ export class Arena {
     if (this.themeName === name) return;
     this.themeName = name; const t = THEMES[name];
     this.theme = t;
-    for (let z = 0; z < 8; z++) for (let x = 0; x < 8; x++) {
-      const foe = z < 4, c = (foe ? t.foe : t.tiles)[(x + z) % 2];
-      this.tiles.setColorAt(z * 8 + x, col(c));
+    // tô 3 màu xen kẽ (đúng quy tắc tô màu lưới lục giác), nửa trên (đối thủ) mang tông khác
+    for (let r = 0; r < 8; r++) for (let c = 0; c < COLS; c++) {
+      const pal = (r < 4 ? t.foe : t.tiles), cx = c - ((r - (r & 1)) >> 1), k = (((cx - r) % 3) + 3) % 3;
+      const cc = k === 2 ? col(pal[0]).lerp(col(pal[1]), .5).offsetHSL(0, 0, .02) : col(pal[k]);
+      this.tiles.setColorAt(r * 8 + c, cc);
     }
     this.tiles.instanceColor.needsUpdate = true;
     this.frame.material.color.set(t.side); this.rim.material.color.set(t.rim);
@@ -133,9 +137,9 @@ export class Arena {
     const ring = (i, n, r, cx, cz) => { const a = (i / n) * Math.PI * 2; return [cx + Math.cos(a) * r, cz + Math.sin(a) * r]; };
     this.decorAnim = [];
     for (let i = 0; i < 16; i++) {
-      let [x, z] = ring(i, 16, 7.2 + (i % 3) * .6, 4, 4.4);
-      if (z > 8.0 && x > -1.5 && x < 9.5) continue;                    // không che hàng ghế chờ
-      if (x > -.8 && x < 8.8 && z > -.8 && z < 8.8) continue;          // không chồng lên bàn cờ
+      let [x, z] = ring(i, 16, 7.2 + (i % 3) * .6, W / 2, END_Z / 2 + .3);
+      if (z > BENCH_Z - 1 && x > -1.5 && x < W + 1.5) continue;       // không che hàng ghế chờ
+      if (x > -.8 && x < W + .8 && z > -.8 && z < END_Z + .8) continue;          // không chồng lên bàn cờ
       if (kind === 'trees') {
         const h = 1 + (i % 3) * .5;
         add(new THREE.Mesh(new THREE.CylinderGeometry(.08, .12, h * .5, 6), flat('#7a4a2a')), x, h * .25, z);

@@ -32,6 +32,8 @@ const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: `$
 const screenOf = (page, x, z, y = 0.5) => page.evaluate(([x, y, z]) => { const p = __app.world.project(x, y, z), r = __app.world.canvas.getBoundingClientRect(); return { x: r.left + p.x, y: r.top + p.y }; }, [x, y, z]);
 // chờ mọi Pokémon trượt xong về ô của mình rồi mới lấy tọa độ
 const settle = page => page.waitForFunction(() => [...__app.world.views.values()].every(v => v.f || (Math.abs(v.x - v.tx) < .03 && Math.abs(v.z - v.tz) < .03 && !v.spawn)), null, { timeout: 15000 });
+// vị trí màn hình của một ô: zone 'board' (c, r của người chơi) hoặc 'bench' (chỉ số)
+const cellScreen = (page, zone, a, b) => page.evaluate(([zone, a, b]) => { const g = __app.geo, p = zone === 'bench' ? g.benchPos(a) : g.boardPos(a, b), q = __app.world.project(p.x, 0, p.z), r = __app.world.canvas.getBoundingClientRect(); return { x: r.left + q.x, y: r.top + q.y }; }, [zone, a, b]);
 const unitScreen = async (page, uid) => { await settle(page); return unitScreen0(page, uid); };
 const unitScreen0 = (page, uid) => page.evaluate(id => { const v = __app.world.views.get('u' + id), p = __app.world.project(v.x, .5, v.z), r = __app.world.canvas.getBoundingClientRect(); return { x: r.left + p.x, y: r.top + p.y }; }, uid);
 const state = page => page.evaluate(() => { const g = __app.match.g; return { gold: g.gold, level: g.level, round: g.round, bench: g.bench.filter(Boolean).length, board: g.boardCount(), bag: g.bag.length, phase: __app.phase, hp: g.hp }; });
@@ -91,15 +93,15 @@ await step('gộp 3 con giống nhau qua giao diện: lên 2★, tiến hóa, c�
 });
 await step('kéo-thả bằng chuột: băng ghế -> sân, sân -> băng ghế', async () => {
   const uid = await page.evaluate(() => __app.match.g.bench.find(Boolean).id);
-  const a = await unitScreen(page, uid), b = await screenOf(page, 4.5, 6.5, 0);
+  const a = await unitScreen(page, uid), b = await cellScreen(page, 'board', 4, 2);
   await drag(page, a, b); let s = await state(page); assert.equal(s.board, 1, 'phải lên sân'); assert.equal(await page.evaluate(id => __app.match.g.find(id).zone, uid), 'board');
-  const a2 = await unitScreen(page, uid), b2 = await screenOf(page, 2.5 * 0.875 + 0.45, 9.05, 0);
+  const a2 = await unitScreen(page, uid), b2 = await cellScreen(page, 'bench', 2);
   await drag(page, a2, b2); s = await state(page); assert.equal(s.board, 0, 'phải xuống băng ghế');
 });
 await step('giới hạn sân theo cấp độ: cấp 2 chỉ đặt tối đa 2 con', async () => {
   await page.evaluate(() => { const g = __app.match.g; g.level = 2; g.bench.fill(null); for (let i = 0; i < 3; i++) g.bench[i] = g.makeUnit(['geodude', 'machop', 'zubat'][i], 1); __app.refreshView(); });
   const ids = await page.evaluate(() => __app.match.g.bench.slice(0, 3).map(u => u.id));
-  for (let i = 0; i < 3; i++) { const a = await unitScreen(page, ids[i]), b = await screenOf(page, 2.5 + i, 6.5, 0); await drag(page, a, b); }
+  for (let i = 0; i < 3; i++) { const a = await unitScreen(page, ids[i]), b = await cellScreen(page, 'board', 2 + i, 2); await drag(page, a, b); }
   assert.equal((await state(page)).board, 2);
 });
 await step('bán bằng cách kéo vào vùng bán: nhận vàng, trả về kho', async () => {

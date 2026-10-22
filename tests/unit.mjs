@@ -11,6 +11,7 @@ import { Match } from '../src/game/match.js';
 import { roundInfo, isPve } from '../src/game/rounds.js';
 import { Battle, runBattle } from '../src/sim/battle.js';
 import { playGame } from '../tools/autoplay.mjs';
+import * as HEX from '../src/sim/hex.js';
 
 let pass = 0, fail = 0; const failures = [];
 function t(name, fn) {
@@ -149,6 +150,43 @@ t('vật phẩm: trang bị, tự ghép 2 nguyên liệu, tối đa 3 món', () 
   g.giveItem(0, u.id); assert.equal(u.items.length, 2); g.giveItem(0, u.id); g.giveItem(0, u.id); assert.equal(u.items.length, 3);
   const last = g.giveItem(0, u.id); assert.ok(last.combined && last.combined.id === 'lumberry', 'nguyên liệu thứ 3 vẫn ghép được');
   g.bag.push('band'); assert.equal(g.giveItem(g.bag.length - 1, u.id).ok, false, 'đủ 3 món hoàn chỉnh thì không nhận thêm'); assert.equal(u.items.length, 3);
+});
+
+sec('Bàn cờ lục giác');
+t('hình học: 6 ô kề đều cách 1 ô, khoảng cách ô nhất quán với toạ độ thế giới', () => {
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const i = HEX.idx(c, r), p = HEX.center(c, r);
+    for (const n of HEX.NB[i]) { const q = HEX.center(n % 8, (n / 8) | 0); assert.ok(Math.abs(Math.hypot(p.x - q.x, p.z - q.z) - 1) < 1e-9, 'kề phải cách đúng 1'); assert.equal(HEX.dist(c, r, n % 8, (n / 8) | 0), 1); }
+    assert.ok(HEX.NB[i].length >= 2 && HEX.NB[i].length <= 6);
+  }
+  assert.equal(HEX.dist(0, 0, 7, 0), 7); assert.equal(HEX.dist(0, 0, 0, 7), 7); assert.equal(HEX.dist(3, 2, 3, 2), 0);
+  // mọi cặp ô: khoảng cách ô khớp với số bước BFS
+  for (let a = 0; a < 64; a += 5) { const seen = { [a]: 0 }, q = [a]; for (let h = 0; h < q.length; h++) for (const n of HEX.NB[q[h]]) if (seen[n] === undefined) { seen[n] = seen[q[h]] + 1; q.push(n); } for (let b = 0; b < 64; b++) assert.equal(HEX.dist(a % 8, (a / 8) | 0, b % 8, (b / 8) | 0), seen[b]); }
+});
+t('nearestCell là nghịch đảo của center', () => { for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const p = HEX.center(c, r), n = HEX.nearestCell(p.x + .1, p.z - .1); assert.deepEqual([n.c, n.r], [c, r]); } });
+t('đội 1 là bản xoay 180° của đội 0 (công bằng hai phía)', () => {
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) { const a = HEX.center(...Object.values(HEX.toGlobal(0, c, r))), b = HEX.center(...Object.values(HEX.toGlobal(1, c, r))); assert.ok(Math.abs(a.x + b.x - HEX.W) < 1e-9 && Math.abs(a.z + b.z - 2 * HEX.MID_Z) < 1e-9, `(${c},${r})`); }
+  const front0 = HEX.toGlobal(0, 3, 0), front1 = HEX.toGlobal(1, 4, 0); assert.equal(HEX.dist(front0.c, front0.r, front1.c, front1.r) <= 2, true);
+});
+t('mỗi ô chỉ có tối đa một Pokémon trong mọi lúc của nhiều trận ngẫu nhiên', () => {
+  const keys = LINES.map(l => l.key);
+  for (let seed = 1; seed <= 12; seed++) {
+    const mk = (team, n) => Array.from({ length: n }, (_, i) => { const l = LINES[(seed * 7 + i * 13 + team * 5) % LINES.length]; return { id: team * 100 + i + 1, team, cell: { c: (i * 3 + team) % 8, r: l.range > 1 ? 3 : i % 2 }, key: l.key, star: 1 + (seed + i) % 3, items: [] }; });
+    const specs = [...mk(0, 7), ...mk(1, 7)];
+    const seenCells = new Set(); specs.forEach(s => { const g = HEX.toGlobal(s.team, s.cell.c, s.cell.r), k = g.c + ',' + g.r; if (seenCells.has(k)) s.cell = { c: s.cell.c, r: (s.cell.r + 1) % 4 }; seenCells.add(HEX.toGlobal(s.team, s.cell.c, s.cell.r).c + ',' + HEX.toGlobal(s.team, s.cell.c, s.cell.r).r); });
+    const b = new Battle(specs, { seed, events: false }); let n = 0;
+    while (!b.over && n++ < 2400) {
+      b.step();
+      const occ = new Map(); for (const f of b.f) if (f.alive) { const k = f.hc + ',' + f.hr; assert.ok(!occ.has(k), `trận ${seed} tick ${n}: hai Pokémon chung ô ${k}`); occ.set(k, f.id); assert.equal(b.grid[HEX.idx(f.hc, f.hr)], f, 'bảng ô phải khớp'); }
+      assert.equal(b.grid.filter(Boolean).length, occ.size, 'ô ma (Pokémon đã gục vẫn chiếm ô)');
+    }
+    assert.ok(b.over);
+  }
+});
+t('di chuyển theo ô: cận chiến tiến sát, đánh xa dừng đúng tầm', () => {
+  const b = new Battle([{ id: 1, team: 0, cell: { c: 3, r: 3 }, key: 'machop', star: 1, items: [] }, { id: 2, team: 0, cell: { c: 4, r: 3 }, key: 'abra', star: 1, items: [] }, { id: 3, team: 1, cell: { c: 3, r: 3 }, key: 'snorlax', star: 3, items: [] }], { seed: 1, events: false });
+  let melee = 99, ranged = 99; for (let i = 0; i < 30 * 12 && !b.over; i++) { b.step(); const f = b.f; if (f[0].alive && f[2].alive) melee = Math.min(melee, b.hd(f[0], f[2])); if (f[1].alive && f[2].alive) ranged = Math.min(ranged, b.hd(f[1], f[2])); }
+  assert.equal(melee, 1, 'cận chiến phải áp sát (1 ô)'); assert.ok(ranged >= 2 && ranged <= 3, 'abra tầm 3 phải dừng ở 2-3 ô, thực tế ' + ranged);
 });
 
 sec('Chiến đấu');

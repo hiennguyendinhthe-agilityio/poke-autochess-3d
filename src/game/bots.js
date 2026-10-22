@@ -14,12 +14,12 @@ export const BOT_TEMPLATES = [
   { name: 'Lance', col: '#ff5a3a', focus: ['Dragon', 'Flying', 'Fire'] }
 ];
 // Hệ số điều chỉnh độ khó của bot (cân bằng bằng tools/balance.mjs)
-export const BOT_TUNE = { income: .65, itemEvery: 3 };
+export const BOT_TUNE = { income: .5, itemEvery: 3 };
 // 3 mức độ khó: hệ số thu nhập của bot (đo bằng tools/balance.mjs với người chơi tự động trung bình)
 export const DIFFICULTY = [
-  { id: 0, name: 'Dễ', desc: 'Bot phát triển chậm, hợp để làm quen', income: .45 },
-  { id: 1, name: 'Thường', desc: 'Cân bằng, phù hợp đa số người chơi', income: .65 },
-  { id: 2, name: 'Khó', desc: 'Bot mạnh và ít mắc lỗi hơn', income: .9 }
+  { id: 0, name: 'Dễ', desc: 'Bot phát triển chậm, hợp để làm quen', income: .38 },
+  { id: 1, name: 'Thường', desc: 'Cân bằng, phù hợp đa số người chơi', income: .5 },
+  { id: 2, name: 'Khó', desc: 'Bot mạnh và ít mắc lỗi hơn', income: .7 }
 ];
 // Cấp độ của bot theo vòng (vòng nhỏ nhất để đạt cấp)
 const LEVEL_AT = [0, 0, 1, 3, 5, 8, 12, 17, 23, 30];

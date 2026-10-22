@@ -15,7 +15,7 @@ Mua Pokémon, xếp đội hình, gộp 3 con để **lên sao và tiến hóa**
 | Hệ & Tộc | 18 hệ có tương khắc chuẩn ("Hiệu quả!") + 5 tộc anime: Đội Satoshi, Hỏa Tiễn, Khởi Đầu, Họ Eevee, Huyền Thoại |
 | Chiêu thức | 18 kiểu kỹ năng (tia điện nảy, tia xuyên, thiên thạch, nhảy, dịch chuyển, hồi máu, khiên, độc...), mỗi Pokémon có chiêu riêng theo hệ |
 | Vật phẩm | 6 nguyên liệu, ghép thành 21 vật phẩm (Đai Sức Mạnh, Khăn Trụ Vững, Túi Thức Ăn...), kéo-thả lên Pokémon |
-| 3D | Three.js: đảo nổi, bàn cờ 8x8, hàng ghế chờ, sprite 8 hướng, hiệu ứng hạt/tia/vòng sóng theo hệ, 6 chủ đề sân đấu |
+| 3D | Three.js: đảo nổi, **bàn cờ lục giác** 8x8 (di chuyển từng ô, tầm đánh đo bằng số ô), hàng ghế chờ, sprite 8 hướng, hiệu ứng hạt/tia/vòng sóng theo hệ, 6 chủ đề sân đấu |
 | Model 3D | Nhân vật mặc định là sprite billboard trong cảnh 3D. Nếu bạn tự có model `.glb`, thả vào `public/models/` + `manifest.json` để thay sprite ([hướng dẫn](public/models/README.md)) |
 | Âm thanh | **Tự tổng hợp** bằng Web Audio: nhạc nền theo giai đoạn, hiệu ứng theo hệ, tiếng kêu riêng cho từng Pokémon. Hỗ trợ thả file âm thanh riêng ([hướng dẫn](public/audio-user/README.md)) |
 | Tiện ích | Danh mục Pokémon, 3 mức độ khó, tự lưu và tiếp tục, tăng tốc trận x1/x2/x4, cài như app (PWA) và chơi offline, hỗ trợ cảm ứng |
@@ -44,7 +44,7 @@ npm run preview      # xem thử bản build
 ## Kiểm thử
 
 ```bash
-npm test             # test logic (35 test): dữ liệu, kho chung, gộp sao, kinh tế, chiến đấu, bot, lưu/tải, cả ván tự động
+npm test             # test logic (40 test): dữ liệu, hình học lục giác, kho chung, gộp sao, kinh tế, chiến đấu, bot, lưu/tải, cả ván tự động
 npm run test:e2e     # test trình duyệt thật (Playwright): click, kéo-thả, chiến đấu, lưu/tiếp tục, giao diện điện thoại
 npm run test:all     # tất cả (cần build trước)
 ```
@@ -63,7 +63,7 @@ node tools/balance.mjs 30 --income=0.65   # độ khó của bot so với ngư�
 src/
   data/       lines.js (NGUỒN DỮ LIỆU Pokémon: dòng, giá, tộc, chiêu), roster.js (chỉ số chiến đấu),
               traits.js (hệ & tộc), items.js, types.js (tương khắc), cries.js, generated/forms.json (tự sinh)
-  sim/        battle.js (engine chiến đấu thuần logic, chạy được trong Node), ability-kinds.js, rng.js
+  sim/        battle.js (engine chiến đấu thuần logic, chạy được trong Node), hex.js (hình học lục giác), ability-kinds.js, rng.js
   game/       state.js (kinh tế, cửa hàng, kho chung, gộp sao), match.js (vòng đấu, xếp hạng), bots.js, rounds.js
   render/     world.js (cảnh 3D + chọn/kéo), arena.js (đấu trường), sprites.js (billboard 8 hướng), fx.js (hiệu ứng)
   ui/         hud.js, screens.js, input.js, icons.js, describe.js, base.css
@@ -73,6 +73,8 @@ tools/        fetch-assets.mjs, balance*.mjs, autoplay.mjs, make-icons.mjs, shot
 tests/        unit.mjs, e2e.mjs
 public/       assets/pokemon/<dex>/*.png (sprite), manifest, sw.js, icon, audio-user/
 ```
+
+Bàn cờ lục giác: mỗi Pokémon chiếm một ô, bước từng ô theo đường ngắn nhất (BFS qua ô trống), đánh khi mục tiêu nằm trong tầm (đo bằng số ô); đội đối thủ là bản xoay 180° của đội bạn nên hai phía công bằng.
 
 Engine chiến đấu (`src/sim`) không phụ thuộc trình duyệt nên bot, test và công cụ cân bằng dùng chung đúng một bộ luật với game thật.
 
