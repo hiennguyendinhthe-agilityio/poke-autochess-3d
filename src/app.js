@@ -9,6 +9,7 @@ import { Audio } from './audio/audio.js';
 import { LINE, formAt } from './data/roster.js';
 import { itemColor } from './ui/icons.js';
 import FORMS from './data/generated/forms.json';
+import { initModels } from './render/models.js';
 
 const SAVE = 'pac3d.save', SET = 'pac3d.settings', BEST = 'pac3d.best';
 const store = {
@@ -20,6 +21,7 @@ const store = {
 export class App {
   constructor(root) {
     this.forms = FORMS;       // phục vụ kiểm thử
+    this.modelsReady = initModels();
     this.settings = Object.assign({ shake: true, dpr: 2, seenHint: false, seenShop: false, diff: 1 }, store.get(SET) || {});
     this.audio = new Audio();
     this.world = new World(root);

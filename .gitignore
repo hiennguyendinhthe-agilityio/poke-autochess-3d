@@ -6,3 +6,7 @@ dist
 public/audio-user/*
 !public/audio-user/README.md
 .tmp
+
+# Model 3D riêng của người chơi
+public/models/*
+!public/models/README.md

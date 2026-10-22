@@ -197,6 +197,24 @@ for (const [name, vp] of [['dọc 390x844', { width: 390, height: 844 }], ['ngan
   await m.ctx.close();
 }
 
+// ---------- model 3D tuỳ chọn ----------
+console.log('\nModel 3D tuỳ chọn (.glb)');
+{
+  const { execSync } = await import('node:child_process');
+  fs.mkdirSync('dist/models', { recursive: true }); execSync('node tools/make-test-glb.mjs dist/models/test.glb');
+  fs.writeFileSync('dist/models/manifest.json', JSON.stringify({ 4: 'test.glb' }));
+  const m = await open({ width: 900, height: 600 }); const pg = m.page;
+  await step('có manifest: Pokémon trong manifest dùng model 3D, có hoạt ảnh; con khác vẫn là sprite', async () => {
+    await pg.evaluate(async () => { await __app.modelsReady; __app.audio.init(); __app.newGame('charmander'); const g = __app.match.g; g.bench[2] = g.makeUnit('squirtle', 1); __app.refreshView(); });
+    await pg.waitForFunction(() => { const v = __app.world.views.get('u' + __app.match.g.bench[0].id); return v && v.actor.model; }, null, { timeout: 15000 });
+    const r = await pg.evaluate(() => { const g = __app.match.g, a = __app.world.views.get('u' + g.bench[0].id).actor, b = __app.world.views.get('u' + g.bench[2].id).actor; return { model: !!a.model, sprHidden: !a.mesh.visible, acts: Object.keys(a.model.actions), other: !!b.model, otherVisible: b.mesh.visible }; });
+    assert.ok(r.model && r.sprHidden && r.acts.includes('Idle') && r.acts.includes('Attack')); assert.ok(!r.other && r.otherVisible);
+    await pg.evaluate(() => { const a = __app.world.views.get('u' + __app.match.g.bench[0].id).actor; a.play('Attack', true); a.face(1, 0); }); await pg.waitForTimeout(600);
+    assert.deepEqual(m.errors.filter(e => !/favicon|manifest/i.test(e)), []);
+  });
+  await m.ctx.close(); fs.rmSync('dist/models', { recursive: true, force: true });
+}
+
 await browser.close(); kill();
 console.log(`\n${pass} đạt, ${fail} lỗi`);
 if (fail) { for (const [n, e] of failures) console.log('\n✗', n, '\n', e.stack.split('\n').slice(0, 5).join('\n')); process.exit(1); }

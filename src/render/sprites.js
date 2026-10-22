@@ -1,6 +1,7 @@
 // Nhân vật: billboard trong không gian 3D, phát hoạt ảnh sprite sheet PMD 8 hướng.
 import * as THREE from 'three';
 import FORMS from '../data/generated/forms.json';
+import { hasModel, loadModel, instantiate } from './models.js';
 
 const BASE = 'assets/pokemon/';
 const loader = new THREE.TextureLoader();
@@ -72,6 +73,22 @@ export class Actor {
     this.shadow.scale.set(Math.max(.7, this.form.anims.Idle.bw * this.px * 1.15) * this.scaleMul, 1, Math.max(.45, this.form.anims.Idle.bw * this.px * .7) * this.scaleMul);
     this.group.scale.setScalar(this.scaleMul); this.shadow.scale.multiplyScalar(1 / this.scaleMul);
     this.apply();
+    this.detachModel();
+    if (hasModel(dex)) { const d = dex; loadModel(d).then(m => { if (m && this.dex === d) this.attachModel(m); }); }
+  }
+  // ----- model 3D tuỳ chọn (thay sprite) -----
+  detachModel() { if (this.model) { this.group.remove(this.model.wrap); this.model = null; } this.mesh.visible = true; }
+  attachModel(m) {
+    this.model = instantiate(m, this.worldH); this.group.add(this.model.wrap); this.mesh.visible = false;
+    this.model.yaw = this.model.wrap.rotation.y = 0; this.model.cur = null; this.model.act = null; this.playModel('Idle');
+  }
+  playModel(name, once = false) {
+    const M = this.model; if (!M) return;
+    const a = M.actions[name] || M.actions.Idle; if (!a) return;
+    if (M.act === a && !once) return;
+    if (M.act && M.act !== a) M.act.fadeOut(.15);
+    a.reset().fadeIn(.1).play(); a.setLoop(once ? 2200 : 2201, once ? 1 : Infinity); a.clampWhenFinished = once;
+    M.act = a; M.once = once ? name : null; M.t = 0;
   }
   setScale(s) { this.scaleMul = s; this.group.scale.setScalar(s); }
   get headY() { return this.worldH * this.scaleMul; }
@@ -80,8 +97,9 @@ export class Actor {
     if (!this.form.anims[anim]) anim = anim === 'Charge' ? 'Attack' : 'Idle';
     if (this.anim === anim && !once) return;
     this.anim = anim; this.frame = 0; this.t = 0; this.once = once ? true : null;
+    if (this.model) this.playModel(anim === 'Charge' ? 'Attack' : anim, once);
   }
-  face(vx, vz) { if (Math.abs(vx) + Math.abs(vz) > 1e-4) this.dir = dirIndex(vx, vz); }
+  face(vx, vz) { if (Math.abs(vx) + Math.abs(vz) > 1e-4) { this.dir = dirIndex(vx, vz); this.yaw = Math.atan2(vx, vz); } }
 
   tex(anim) {
     if (this.texs[anim]) return this.texs[anim];
@@ -103,6 +121,14 @@ export class Actor {
   }
 
   update(dt) {
+    if (this.model) {
+      const M = this.model; M.mixer.update(dt);
+      if (M.once && (M.t += dt) > (M.act.getClip().duration || .5)) { M.once = null; this.playModel(this._rest || 'Idle'); }
+      let d = (this.yaw || 0) - M.wrap.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); M.wrap.rotation.y += d * Math.min(1, dt * 12);
+      if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 6);
+      this.shadow.material.opacity = this.fade * .9; M.wrap.visible = this.fade > .02;
+      return;
+    }
     const info = this.form.anims[this.anim];
     this.t += dt * 60 * this.speed;
     let d = info.dur[this.frame] || 2;
@@ -121,6 +147,6 @@ export class Actor {
     this.apply();
   }
   // anim "nghỉ": đứng yên hoặc chạy
-  rest(anim) { this._rest = anim; if (!this.once && this.anim !== anim && (this.anim === 'Idle' || this.anim === 'Walk')) this.play(anim); }
+  rest(anim) { this._rest = anim; if (!this.once && this.anim !== anim && (this.anim === 'Idle' || this.anim === 'Walk')) this.play(anim); else if (this.model && !this.model.once) this.playModel(anim); }
   dispose() { for (const k in this.texs) this.texs[k].dispose(); this.mat.dispose(); this.shadow.material.dispose(); }
 }

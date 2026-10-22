@@ -16,6 +16,7 @@ Mua Pokémon, xếp đội hình, gộp 3 con để **lên sao và tiến hóa**
 | Chiêu thức | 18 kiểu kỹ năng (tia điện nảy, tia xuyên, thiên thạch, nhảy, dịch chuyển, hồi máu, khiên, độc...), mỗi Pokémon có chiêu riêng theo hệ |
 | Vật phẩm | 6 nguyên liệu, ghép thành 21 vật phẩm (Đai Sức Mạnh, Khăn Trụ Vững, Túi Thức Ăn...), kéo-thả lên Pokémon |
 | 3D | Three.js: đảo nổi, bàn cờ 8x8, hàng ghế chờ, sprite 8 hướng, hiệu ứng hạt/tia/vòng sóng theo hệ, 6 chủ đề sân đấu |
+| Model 3D | Nhân vật mặc định là sprite billboard trong cảnh 3D. Nếu bạn tự có model `.glb`, thả vào `public/models/` + `manifest.json` để thay sprite ([hướng dẫn](public/models/README.md)) |
 | Âm thanh | **Tự tổng hợp** bằng Web Audio: nhạc nền theo giai đoạn, hiệu ứng theo hệ, tiếng kêu riêng cho từng Pokémon. Hỗ trợ thả file âm thanh riêng ([hướng dẫn](public/audio-user/README.md)) |
 | Tiện ích | Danh mục Pokémon, 3 mức độ khó, tự lưu và tiếp tục, tăng tốc trận x1/x2/x4, cài như app (PWA) và chơi offline, hỗ trợ cảm ứng |
 
@@ -98,4 +99,4 @@ Bật một lần trong repo: **Settings → Pages → Source: GitHub Actions**.
 Hoàn chỉnh và chơi được: toàn bộ vòng lặp ván chơi, 79 Pokémon, 7 bot, vật phẩm, 3D, âm thanh, lưu/tải, PWA, test.
 
 Ý tưởng mở rộng: PvP online (WebRTC, bot hiện đã dùng chung engine nên có thể thay bằng người), thêm "Augment" giữa ván,
-vòng "carousel" chọn vật phẩm, thêm Pokémon/tộc mới (xem mục Thêm Pokémon), mô hình 3D thật thay cho sprite billboard.
+vòng "carousel" chọn vật phẩm, thêm Pokémon/tộc mới (xem mục Thêm Pokémon), bộ model 3D đầy đủ (cơ chế nạp `.glb` đã có sẵn).
