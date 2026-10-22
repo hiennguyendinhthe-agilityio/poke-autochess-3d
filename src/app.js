@@ -166,24 +166,29 @@ export class App {
 
   // ---------- chiến đấu ----------
   autoFill() {
-    const g = this.match.g;
-    if (g.boardCount() > 0) return false;
-    const bench = g.bench.map((u, i) => ({ u, i })).filter(x => x.u).sort((a, b) => LINE[b.u.key].cost * b.u.star - LINE[a.u.key].cost * a.u.star).slice(0, g.cap);
-    let col = 3; const order = [3, 4, 2, 5, 1, 6, 0, 7];
-    bench.forEach((x, k) => { const front = LINE[x.u.key].range <= 1 ? 0 : 3; g.move(x.u.id, { zone: 'board', idx: front * 8 + order[k % 8] }); });
-    return bench.length > 0;
+    return this.match?.g ? this.match.g.autoFill() : 0;
   }
   ready() {
     if (this.phase !== 'prep' || this.screenOpen || this.modalOpen) return;
     const g = this.match.g;
-    if (!g.boardCount() && !this.autoFill()) { this.audio.sfx('error'); return this.hud.toast('Hãy đặt ít nhất 1 Pokémon lên sân'); }
+    const filled = this.autoFill();
+    if (filled > 0) {
+      this.refreshView();
+      this.hud.toast(`Đã tự đưa ${filled} Pokémon lên sân`);
+      this.audio.sfx('drop');
+    }
+    if (!g.boardCount()) { this.audio.sfx('error'); return this.hud.toast('Hãy đặt ít nhất 1 Pokémon lên sân'); }
     this.settings.seenHint = true; this.saveSettings();
     this.startCombat();
   }
   startCombat() {
     if (this.phase !== 'prep') return;
     const m = this.match, g = m.g;
-    if (this.autoFill()) this.hud.toast('Đã tự đặt Pokémon lên sân');
+    const filled = this.autoFill();
+    if (filled > 0) {
+      this.hud.toast(`Đã tự đưa ${filled} Pokémon lên sân`);
+      this.audio.sfx('drop');
+    }
     this.refreshView();
     const specs = [...g.teamSpecs(), ...g.fight.specs];
     const seed = (g.rng() * 2 ** 31) >>> 0; g.save();

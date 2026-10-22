@@ -171,6 +171,63 @@ export class Game {
     return { ok: true };
   }
 
+  // Tự động đưa Pokémon mạnh nhất từ hàng chờ lên các ô trống trên sân khi thiếu slot
+  autoFill() {
+    const needed = this.cap - this.boardCount();
+    if (needed <= 0) return 0;
+    const benchUnits = this.bench.map((u, i) => ({ u, i })).filter(x => x.u);
+    if (!benchUnits.length) return 0;
+
+    // Sắp xếp ưu tiên:
+    // 1. Số sao cao hơn
+    // 2. Giá tiền dòng Pokémon cao hơn
+    // 3. Số lượng trang bị nhiều hơn
+    // 4. Vị trí từ trái qua phải trên hàng chờ
+    benchUnits.sort((a, b) => {
+      const la = LINE[a.u.key], lb = LINE[b.u.key];
+      const starDiff = b.u.star - a.u.star;
+      if (starDiff !== 0) return starDiff;
+      const costDiff = (lb ? lb.cost : 1) - (la ? la.cost : 1);
+      if (costDiff !== 0) return costDiff;
+      const itemDiff = (b.u.items?.length || 0) - (a.u.items?.length || 0);
+      if (itemDiff !== 0) return itemDiff;
+      return a.i - b.i;
+    });
+
+    const toDeploy = benchUnits.slice(0, needed);
+    const colOrder = [3, 4, 2, 5, 1, 6, 0, 7];
+    let filledCount = 0;
+
+    for (const { u } of toDeploy) {
+      const line = LINE[u.key];
+      const isFront = (line?.range ?? 1) <= 1;
+      const rowOrder = isFront ? [0, 1, 2, 3] : [3, 2, 1, 0];
+
+      let targetIdx = -1;
+      for (const r of rowOrder) {
+        for (const c of colOrder) {
+          const idx = r * BOARD_COLS + c;
+          if (!this.board[idx]) {
+            targetIdx = idx;
+            break;
+          }
+        }
+        if (targetIdx !== -1) break;
+      }
+
+      if (targetIdx === -1) {
+        targetIdx = this.board.findIndex(cell => !cell);
+      }
+
+      if (targetIdx !== -1) {
+        const res = this.move(u.id, { zone: 'board', idx: targetIdx });
+        if (res.ok) filledCount++;
+      }
+    }
+
+    return filledCount;
+  }
+
   // ---------- kinh nghiệm ----------
   addXp(n) {
     this.xp += n;

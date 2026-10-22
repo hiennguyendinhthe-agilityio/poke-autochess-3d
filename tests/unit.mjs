@@ -127,6 +127,39 @@ t('giới hạn số Pokémon trên sân theo cấp độ', () => {
   assert.ok(g.move(us[2].id, { zone: 'board', idx: 3 }).ok, 'hoán đổi với ô đang có thì được');
   assert.equal(g.boardCount(), 2);
 });
+t('tự bốc Pokémon mạnh nhất từ hàng chờ lên sân khi thiếu slot', () => {
+  const g = Game.create(2, 'charmander'); g.bench.fill(null); g.board.fill(null); g.level = 3;
+  // Đặt 1 con lên sân sẵn tại idx 10
+  const onBoard = g.makeUnit('charmander', 1);
+  g.board[10] = onBoard;
+  assert.equal(g.boardCount(), 1);
+
+  // Hàng chờ có 4 con với độ mạnh khác nhau:
+  // u1: giá 1, 1★ (zubat)
+  // u2: giá 1, 2★ (machop) -> mạnh hơn vì 2★
+  // u3: giá 4, 1★ (dragonite) -> mạnh hơn u1 vì giá 4
+  // u4: giá 1, 1★ có đồ (geodude) -> có 1 item
+  const u1 = (g.bench[0] = g.makeUnit('zubat', 1));
+  const u2 = (g.bench[1] = g.makeUnit('machop', 2));
+  const u3 = (g.bench[2] = g.makeUnit('dratini', 1));
+  const u4 = (g.bench[3] = g.makeUnit('geodude', 1));
+  u4.items = ['choiceband'];
+
+  // Cần thêm 2 con (level 3 - 1 = 2)
+  const filled = g.autoFill();
+  assert.equal(filled, 2, 'bốc đúng 2 con');
+  assert.equal(g.boardCount(), 3, 'sân đủ 3 con');
+  assert.equal(g.board[10], onBoard, 'con cũ vẫn giữ nguyên vị trí');
+
+  // u2 (2★) và u3 (giá 4) phải được đưa lên sân
+  assert.ok(g.board.includes(u2), 'u2 (2★) được đưa lên sân');
+  assert.ok(g.board.includes(u3), 'u3 (giá 4) được đưa lên sân');
+  assert.ok(!g.board.includes(u1), 'u1 (yếu hơn) vẫn ở lại hàng chờ');
+
+  // Khi đã đủ slot, autoFill lần nữa trả về 0
+  assert.equal(g.autoFill(), 0);
+  assert.equal(g.boardCount(), 3);
+});
 t('XP và lên cấp; cấp 9 là tối đa', () => {
   const g = Game.create(2, 'charmander'); g.gold = 1000; const lv = g.level;
   g.buyXp(); assert.equal(g.xp, 4 - (g.level > lv ? XP_NEED[lv] : 0));
