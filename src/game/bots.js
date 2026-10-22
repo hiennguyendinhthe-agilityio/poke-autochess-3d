@@ -13,6 +13,14 @@ export const BOT_TEMPLATES = [
   { name: 'Cynthia', col: '#9a6cff', focus: ['Ghost', 'Dark', 'Psychic'] },
   { name: 'Lance', col: '#ff5a3a', focus: ['Dragon', 'Flying', 'Fire'] }
 ];
+// Hệ số điều chỉnh độ khó của bot (cân bằng bằng tools/balance.mjs)
+export const BOT_TUNE = { income: .65, itemEvery: 3 };
+// 3 mức độ khó: hệ số thu nhập của bot (đo bằng tools/balance.mjs với người chơi tự động trung bình)
+export const DIFFICULTY = [
+  { id: 0, name: 'Dễ', desc: 'Bot phát triển chậm, hợp để làm quen', income: .45 },
+  { id: 1, name: 'Thường', desc: 'Cân bằng, phù hợp đa số người chơi', income: .65 },
+  { id: 2, name: 'Khó', desc: 'Bot mạnh và ít mắc lỗi hơn', income: .9 }
+];
 // Cấp độ của bot theo vòng (vòng nhỏ nhất để đạt cấp)
 const LEVEL_AT = [0, 0, 1, 3, 5, 8, 12, 17, 23, 30];
 const COMPLETE = Object.values(ITEMS).filter(i => !i.comp).map(i => i.id);
@@ -54,10 +62,10 @@ function draw(bot, rng) {
 }
 
 // Bot "chơi" một vòng: lên cấp, nhận vàng, mua Pokémon, gộp sao, nhận vật phẩm
-export function growBot(bot, round, rng) {
+export function growBot(bot, round, rng, income = BOT_TUNE.income) {
   while (bot.level < 9 && round >= LEVEL_AT[bot.level + 1]) bot.level++;
   const base = Math.min(5, 1 + round);
-  bot.gold += Math.round((base + Math.min(5, Math.floor(bot.gold / 10))) * bot.skill) + (Math.abs(bot.streak) >= 3 ? 1 : 0);
+  bot.gold += Math.round((base + Math.min(5, Math.floor(bot.gold / 10))) * bot.skill * income) + (Math.abs(bot.streak) >= 3 ? 1 : 0);
   const keep = round < 6 ? 0 : round < 14 ? 10 + (bot.skill > 1 ? 10 : 0) : 30;
   const maxUnits = bot.level + 8;
   let guard = 0;
@@ -81,7 +89,7 @@ export function growBot(bot, round, rng) {
     else break;
   }
   // vật phẩm
-  if (round >= 3 && (round % 3 === 0 || round % 5 === 1) && bot.units.length) {
+  if (round >= 3 && (round % BOT_TUNE.itemEvery === 0) && bot.units.length) {
     const target = bot.units.filter(u => u.items.length < MAX_ITEMS).sort((a, b) => value(bot, b) - value(bot, a))[0];
     if (target) target.items.push(COMPLETE[rng.int(COMPLETE.length)]);
   }

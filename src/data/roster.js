@@ -12,16 +12,17 @@ export const STAR_ATK = [0, 1, 1.5, 2.25];
 export const STAR_ABILITY = [0, 1, 1.75, 3.0];
 
 // Chỉ số cơ bản ở 1★ theo giá
-const COST_HP = [0, 520, 700, 920, 1180, 1500];
-const COST_ATK = [0, 38, 50, 64, 82, 108];
-export const COST_POWER = [0, 110, 150, 200, 270, 380];   // sức mạnh kỹ năng 1★
+// (mỗi bậc giá mạnh hơn bậc trước khoảng 1.2 lần ở mỗi chỉ số; bậc 5 là huyền thoại nên nhỉnh hơn)
+const COST_HP = [0, 520, 610, 710, 820, 950];
+const COST_ATK = [0, 38, 44, 51, 60, 70];
+export const COST_POWER = [0, 110, 128, 148, 172, 205];   // sức mạnh kỹ năng 1★
 
-// Trung bình các chỉ số gốc trong roster (để quy đổi tỉ lệ)
+// Trung bình các chỉ số gốc (dạng cuối của mỗi dòng) để quy đổi tỉ lệ
 const mean = {};
 {
-  const seen = new Set(), acc = { hp: 0, off: 0, def: 0, spd: 0, spe: 0 }; let n = 0;
-  for (const l of LINES) for (const d of l.dex) {
-    if (seen.has(d)) continue; seen.add(d); const s = FORMS[d].stats; n++;
+  const acc = { hp: 0, off: 0, def: 0, spd: 0, spe: 0 }; let n = 0;
+  for (const l of LINES) for (const d of [l.dex[2]]) {
+    const s = FORMS[d].stats; n++;
     acc.hp += s.hp; acc.off += Math.max(s.atk, s.spa); acc.def += s.def; acc.spd += s.spd; acc.spe += s.spe;
   }
   for (const k in acc) mean[k] = acc[k] / n;
@@ -37,7 +38,11 @@ export const skillAt = (line, star) => {
 
 // Chỉ số cơ bản (chưa tính tộc & vật phẩm) cho Pokémon `line` ở `star`
 export function baseStats(line, star, opt = {}) {
-  const f = formAt(line, star), s = f.stats, c = line.cost, mult = opt.mult || 1;
+  // "hình dáng" chỉ số lấy theo dạng cuối của dòng, để Pokémon chưa tiến hóa không bị thiệt so với cùng bậc giá
+  // (riêng dòng có cờ `own`, như Magikarp, dùng đúng dạng hiện tại)
+  const f = formAt(line, star), s = (line.own ? f : FORMS[line.dex[2]]).stats, c = line.cost;
+  // `tune` (trong lines.js) là hệ số tinh chỉnh riêng từng dòng, rút ra từ tools/balance-teams.mjs
+  const t = line.tune || 1, mult = (opt.mult || 1) * Math.sqrt(t);
   const off = Math.max(s.atk, s.spa);
   const sk = line.skill ? skillAt(line, star) : null;
   const kind = sk && ABILITY_KINDS[sk.kind];
@@ -52,7 +57,7 @@ export function baseStats(line, star, opt = {}) {
     crit: .05, critDmg: .5,
     manaMax: kind ? kind.mana : 0,
     manaStart: 0,
-    abilityPower: COST_POWER[c] * STAR_ABILITY[star] * mult
+    abilityPower: COST_POWER[c] * STAR_ABILITY[star] * (opt.mult || 1) * t
   };
 }
 

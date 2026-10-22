@@ -268,10 +268,13 @@ export class Battle {
     f.target = tg.id;
     const d = this.dist(f, tg);
     f.fx = (tg.x - f.x) / (d || 1); f.fz = (tg.z - f.z) / (d || 1);
-    // kỹ năng
+    // kỹ năng: đủ năng lượng thì tiến lại cho tới khi chiêu trúng đích rồi mới tung (không đánh thường lãng phí)
     if (f.ability && f.manaMax && f.mana >= f.manaMax) {
-      const kind = f.ability.kind;
-      if (SELF_CAST.has(kind) ? d <= 7 : d <= this.reach(f) + .2) { this.startCast(f, tg); return; }
+      const cr = this.castRange(f);
+      if (d <= cr) { this.startCast(f, tg); return; }
+      const s = f.msE * dt, k = Math.min(1, s / d);
+      f.x += (tg.x - f.x) * k; f.z += (tg.z - f.z) * k; f.moving = true;
+      return;
     }
     if (d <= this.reach(f)) {
       if (f.atkT <= 0) {
@@ -302,6 +305,12 @@ export class Battle {
   }
 
   pow(f) { return f.abPow * (1 + (f.m.ap || 0) / 100); }
+  // tầm tung chiêu: chiêu nổ quanh người phải có kẻ địch trong bán kính; chiêu tự thân/nhảy tung được từ xa
+  castRange(f) {
+    const kind = f.ability.kind;
+    if (kind === 'nova' || kind === 'quake') return ABILITY_KINDS[kind].nums(this.pow(f)).radius * .9;
+    return SELF_CAST.has(kind) ? 7 : this.reach(f) + .2;
+  }
   magic(f, o, dmg) { return this.damage(f, o, dmg, { kind: 'mag', type: f.ability.type, ability: true }); }
 
   resolve(f, c) {
@@ -453,4 +462,11 @@ export function runBattle(specs, seed = 1) {
   let guard = 0;
   while (!b.over && guard++ < 4000) b.step();
   return { winner: b.winner, survivors: b.alive(b.winner === null ? 0 : b.winner).length, t: b.t, battle: b };
+}
+
+// Xem trước chỉ số thật (đã tính tộc + vật phẩm) của một Pokémon trong đội hình `specs` (cùng một đội)
+export function previewFighter(specs, id) {
+  const b = new Battle(specs, { seed: 1, events: false });
+  const f = b.byId(id); if (!f) return null;
+  b.refresh(f); return f;
 }

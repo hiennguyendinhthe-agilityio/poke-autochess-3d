@@ -31,19 +31,19 @@ type('Fire', [{ n: 2, mods: { atkPct: .15 } }, { n: 4, mods: { atkPct: .30, burn
 type('Water', [{ n: 2, mods: { manaRegen: 2 } }, { n: 4, mods: { manaRegen: 4, ap: 15 } }, { n: 6, mods: { manaRegen: 7, ap: 30 } }]);
 type('Grass', [{ n: 2, mods: { regenPct: .008 } }, { n: 4, mods: { regenPct: .016 } }, { n: 6, mods: { regenPct: .028 }, allMods: { regenPct: .008 } }]);
 type('Electric', [{ n: 2, mods: { asPct: .15 } }, { n: 4, mods: { asPct: .30 } }, { n: 6, mods: { asPct: .50 } }]);
-type('Ice', [{ n: 2, mods: { slowOnHit: .25, armor: 15 } }, { n: 3, mods: { slowOnHit: .40, armor: 35 } }]);
+type('Ice', [{ n: 2, mods: { slowOnHit: .25, armor: 15 } }, { n: 4, mods: { slowOnHit: .40, armor: 35 } }]);
 type('Fighting', [{ n: 2, mods: { atkPct: .12, lifesteal: .08 } }, { n: 4, mods: { atkPct: .25, lifesteal: .16 } }]);
 type('Poison', [{ n: 2, mods: { poisonOnHit: .05 } }, { n: 4, mods: { poisonOnHit: .10 } }]);
-type('Ground', [{ n: 2, mods: { armor: 20, mr: 20 } }, { n: 3, mods: { armor: 40, mr: 40 } }]);
+type('Ground', [{ n: 2, mods: { armor: 20, mr: 20 } }, { n: 4, mods: { armor: 40, mr: 40 } }]);
 type('Flying', [{ n: 2, mods: { dodge: .15, asPct: .10 } }, { n: 4, mods: { dodge: .25, asPct: .20 } }]);
 type('Psychic', [{ n: 2, mods: { ap: 20 } }, { n: 4, mods: { ap: 45 } }, { n: 6, mods: { ap: 80 } }]);
-type('Bug', [{ n: 2, mods: { asPct: .15, dr: .05 } }, { n: 3, mods: { asPct: .30, dr: .10 } }]);
-type('Rock', [{ n: 2, mods: { armor: 25, dr: .05 } }, { n: 3, mods: { armor: 50, dr: .10 } }]);
-type('Ghost', [{ n: 2, mods: { dodge: .12, ap: 20 } }, { n: 3, mods: { dodge: .22, ap: 35 } }]);
+type('Bug', [{ n: 2, mods: { asPct: .15, dr: .05 } }, { n: 4, mods: { asPct: .30, dr: .10 } }]);
+type('Rock', [{ n: 2, mods: { armor: 25, dr: .05 } }, { n: 4, mods: { armor: 50, dr: .10 } }]);
+type('Ghost', [{ n: 2, mods: { dodge: .12, ap: 20 } }, { n: 4, mods: { dodge: .22, ap: 35 } }]);
 type('Dragon', [{ n: 2, mods: { hpPct: .15, atkPct: .15 } }, { n: 3, mods: { hpPct: .25, atkPct: .25 } }, { n: 4, mods: { hpPct: .40, atkPct: .40 } }]);
-type('Dark', [{ n: 2, mods: { crit: .15, critDmg: .20 } }, { n: 3, mods: { crit: .30, critDmg: .40 } }]);
-type('Steel', [{ n: 2, mods: { dr: .08, hpPct: .10 } }, { n: 3, mods: { dr: .16, hpPct: .20 } }]);
-type('Fairy', [{ n: 2, allMods: { shieldPct: .12 } }, { n: 3, allMods: { shieldPct: .24 } }]);
+type('Dark', [{ n: 2, mods: { crit: .15, critDmg: .20 } }, { n: 4, mods: { crit: .30, critDmg: .40 } }]);
+type('Steel', [{ n: 2, mods: { dr: .08, hpPct: .10 } }, { n: 4, mods: { dr: .16, hpPct: .20 } }]);
+type('Fairy', [{ n: 2, allMods: { shieldPct: .12 } }, { n: 4, allMods: { shieldPct: .24 } }]);
 
 // ---------- Tộc (lấy cảm hứng từ anime) ----------
 add(T('satoshi', 'Đội Satoshi', 'anime', '#ff5a5a', [
@@ -53,7 +53,8 @@ add(T('satoshi', 'Đội Satoshi', 'anime', '#ff5a5a', [
 ], 'Không bao giờ bỏ cuộc, dù chỉ còn một chút sức lực.'));
 add(T('rocket', 'Hỏa Tiễn', 'anime', '#4a4a6a', [
   { n: 2, mods: { armor: 10, deathExplode: { dmg: 160, rad: 1.8, stun: 0 } } },
-  { n: 4, mods: { armor: 25, deathExplode: { dmg: 380, rad: 2.0, stun: 1 } } }
+  { n: 4, mods: { armor: 25, deathExplode: { dmg: 380, rad: 2.0, stun: 1 } } },
+  { n: 6, mods: { armor: 40, deathExplode: { dmg: 700, rad: 2.2, stun: 1.5 } } }
 ], 'Lại bị bắn bay mất rồi! ... nhưng đi thì phải nổ cái đã.'));
 add(T('starter', 'Khởi Đầu', 'anime', '#7ed957', [
   { n: 3, mods: { growth: { every: 4, atkPct: .03, hpPct: .03 } } },

@@ -20,7 +20,7 @@ export const ABILITY_KINDS = {
     desc: n => `Bắn tia xuyên thẳng, gây ${n.dmg} sát thương cho mọi kẻ địch trên đường.`
   },
   burst: {
-    mana: 60, cast: .5, nums: p => ({ dmg: r(p * 1), radius: 1.5, slow: .4, dur: 3, dot: p * .5 }),
+    mana: 60, cast: .5, nums: p => ({ dmg: r(p * .85), radius: 1.5, slow: .4, dur: 3, dot: p * .45 }),
     desc: (n, fx) => `Nổ vùng quanh mục tiêu, gây ${n.dmg} sát thương${fx === 'web' ? ' và làm chậm ' + Math.round(n.slow * 100) + '%' : fx === 'poison' ? ', kèm độc ' + n.dot + '/5s' : fx === 'burn' ? ', kèm bỏng ' + n.dot + '/5s' : ''}.`
   },
   nova: {
@@ -44,7 +44,7 @@ export const ABILITY_KINDS = {
     desc: n => `Dậm đất: ${n.dmg} sát thương vùng quanh mình và choáng ${n.stun}s.`
   },
   heal: {
-    mana: 70, cast: .5, nums: p => ({ heal: r(p * 2.4), ally: r(p * 1.6) }),
+    mana: 70, cast: .5, nums: p => ({ heal: r(p * 1.5), ally: r(p * 1.0) }),
     desc: n => `Hồi ${n.heal} máu cho bản thân và ${n.ally} cho đồng đội yếu nhất.`
   },
   shield: {
@@ -52,7 +52,7 @@ export const ABILITY_KINDS = {
     desc: n => `Tạo khiên ${n.shield} cho bản thân và ${n.ally} cho đồng đội gần (${n.dur}s).`
   },
   poison: {
-    mana: 50, cast: .4, nums: p => ({ dmg: r(p * .3), dps: r(p * .4), dur: 5, radius: 1.6 }),
+    mana: 50, cast: .4, nums: p => ({ dmg: r(p * .3), dps: r(p * .26), dur: 5, radius: 1.6 }),
     desc: n => `Gây ${n.dmg} sát thương và độc ${n.dps}/giây trong ${n.dur}s, lan sang kẻ địch kề bên.`
   },
   drain: {

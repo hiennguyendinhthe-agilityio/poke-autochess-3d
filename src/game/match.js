@@ -1,6 +1,6 @@
 // Điều phối một ván: vòng đấu, ghép cặp, sát thương, loại người chơi, xếp hạng.
 import { Game } from './state.js';
-import { makeBots, growBot, botSpecs, wildSpecs } from './bots.js';
+import { makeBots, growBot, botSpecs, wildSpecs, DIFFICULTY } from './bots.js';
 import { roundInfo, baseDamage, ARENAS } from './rounds.js';
 import { runBattle } from '../sim/battle.js';
 import { mulberry32 } from '../sim/rng.js';
@@ -8,9 +8,9 @@ import { mulberry32 } from '../sim/rng.js';
 export class Match {
   constructor(game) { this.g = game; }
 
-  static create(seed, starterKey) {
+  static create(seed, starterKey, diff = 1) {
     const g = Game.create(seed, starterKey);
-    g.bots = makeBots(g.rng);
+    g.diff = diff; g.bots = makeBots(g.rng);
     g.over = false; g.placement = 0; g.history = []; g.fight = null;
     g.save();
     return new Match(g);
@@ -23,7 +23,8 @@ export class Match {
   // Chuẩn bị đối thủ của vòng hiện tại (gọi khi bắt đầu vòng, trước giai đoạn chuẩn bị)
   beginRound() {
     const g = this.g, info = this.info;
-    for (const b of this.aliveBots()) growBot(b, g.round, g.rng);
+    const income = DIFFICULTY[g.diff ?? 1].income;
+    for (const b of this.aliveBots()) growBot(b, g.round, g.rng, income);
     if (info.pve) {
       g.fight = { pve: true, name: info.name, col: '#9aa3b5', specs: wildSpecs(info), arena: 'grass', oppId: 0 };
     } else {
