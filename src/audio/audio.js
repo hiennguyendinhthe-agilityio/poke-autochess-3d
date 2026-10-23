@@ -109,6 +109,10 @@ export class Audio {
         for (let i = 0; i < n; i++) T({ f: mtof(base + [0, 4, 7, 12, 16, 19, 24, 28][i]), dur: .3, type: 'triangle', vol: .12, at: i * .075, rev: .4 });
         N({ dur: .5, vol: .06, f: 6000, f2: 12000, type: 'highpass', at: .1 }); break;
       }
+      case 'splash':
+        T({ f: 110, f2: 440, dur: 1.1, type: 'sawtooth', vol: .05, lp: 1400, rev: .3 });
+        [60, 64, 67, 72, 76, 79].forEach((m, i) => T({ f: mtof(m + 12), dur: .8, type: 'triangle', vol: .1, at: .08 + i * .06, rev: .5 }));
+        T({ f: mtof(96), dur: 1.4, type: 'sine', vol: .07, at: .5, rev: .6 }); N({ dur: 1, vol: .06, f: 600, f2: 10000, type: 'highpass', at: .05, q: .7 }); break;
       case 'ready': T({ f: 523, dur: .08, type: 'square', vol: .1 }); T({ f: 784, dur: .14, type: 'square', vol: .1, at: .08 }); break;
       case 'fight': N({ dur: .35, vol: .16, f: 400, f2: 2500, q: .7 }); T({ f: 220, f2: 440, dur: .3, type: 'sawtooth', vol: .1 }); T({ f: 660, dur: .25, type: 'square', vol: .08, at: .15 }); break;
       case 'tick': T({ f: 1000, dur: .05, type: 'square', vol: .08 }); break;

@@ -26,7 +26,45 @@ export class Screens {
   }
   fix() { this.app.modalOpen = !!document.querySelector('.modal'); }
 
-  title() {
+  // Màn mở đầu: logo hiện từng chữ, pháo hoa hạt, chạm để vào (cũng là cú chạm đầu tiên để mở âm thanh trên iOS)
+  splash() {
+    this.clear(); const a = this.app, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const title = 'ĐẤU TRƯỜNG POKÉMON';
+    const d = this.open(`<div class="sp-vig"></div><canvas class="sp-fx"></canvas><div class="sp-flash"></div>
+      <div class="sp-logo"><div class="sp-star">★</div><h1>${(() => { let n = 0; return title.split(' ').map(w => `<span class="sp-word">${[...w].map(ch => `<span style="--i:${n++}">${ch}</span>`).join('')}</span>`).join(''); })()}</h1><div class="sp-sub">AUTO CHESS 3D</div></div>
+      <div class="sp-tap">Chạm để bắt đầu</div>`, 'splash' + (reduce ? ' reduce' : ''));
+    const cv = d.querySelector('.sp-fx'), g = cv.getContext('2d'), dpr = Math.min(2, devicePixelRatio || 1);
+    const fit = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }; fit(); addEventListener('resize', fit);
+    const P = []; let t = 0, last = performance.now(), burst = false, alive = true;
+    const add = (x, y, vx, vy, life, col, size, grav) => P.push({ x, y, vx, vy, life, max: life, col, size, grav });
+    const frame = now => {
+      if (!alive) return; const dt = Math.min(.05, (now - last) / 1000); last = now; t += dt;
+      const cx = innerWidth / 2, cy = innerHeight * .42;
+      if (!burst && t > 2.1 && !reduce) {          // pháo hoa lúc logo bừng sáng
+        burst = true; for (let i = 0; i < 150; i++) { const a = Math.random() * 6.283, v = 90 + Math.random() * 420; add(cx, cy, Math.cos(a) * v, Math.sin(a) * v * .8 - 60, 1.1 + Math.random() * 1.2, ['#ffe14a', '#fff', '#ff9ad5', '#7fe8ff', '#ffb347'][i % 5], 2 + Math.random() * 3.5, 260); }
+      }
+      if (!reduce && Math.random() < .5) add(Math.random() * innerWidth, innerHeight + 8, (Math.random() - .5) * 20, -40 - Math.random() * 70, 3 + Math.random() * 2, '#ffe9a0', 1.5 + Math.random() * 2, 0);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, innerWidth, innerHeight); g.globalCompositeOperation = 'lighter';
+      for (let i = P.length - 1; i >= 0; i--) {
+        const p = P[i]; p.life -= dt; if (p.life <= 0) { P.splice(i, 1); continue; }
+        p.vy += p.grav * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .995;
+        g.globalAlpha = Math.min(1, p.life / p.max * 1.6); g.fillStyle = p.col; g.beginPath(); g.arc(p.x, p.y, p.size, 0, 7); g.fill();
+        g.globalAlpha *= .35; g.beginPath(); g.arc(p.x, p.y, p.size * 2.6, 0, 7); g.fill();
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    // vào màn hình chính (chạm, bấm phím bất kỳ)
+    let gone = false;
+    const enter = () => {
+      if (gone) return; gone = true; alive = false; removeEventListener('resize', fit);
+      a.audio.init(); a.audio.sfx('splash'); a.world.endIntro();
+      d.classList.add('out'); setTimeout(() => { this.clear(); this.title(true); }, reduce ? 50 : 520);
+    };
+    d.addEventListener('pointerdown', enter); addEventListener('keydown', function k(e) { if (!gone && !e.repeat && !a.modalOpen) { enter(); removeEventListener('keydown', k); } });
+  }
+
+  title(enter = false) {
     this.clear(); const a = this.app;
     const hasSave = a.hasSave();
     const d = this.open(`
@@ -44,6 +82,7 @@ export class Screens {
     d.querySelector('#mHow').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.howTo(); };
     d.querySelector('#mDex').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.codex(); };
     d.querySelector('#mSet').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.settings(); };
+    if (enter) d.classList.add('enter');
     a.audio.music('menu');
   }
 
@@ -89,6 +128,7 @@ export class Screens {
     const m = this.modal(`<button class="btn close" style="padding:4px 12px">✕</button><h2>Cài đặt</h2>
       <div class="set"><span style="width:90px">Nhạc nền</span><input type="range" id="sMusic" min="0" max="100" value="${Math.round(au.vol.music * 100)}"></div>
       <div class="set"><span style="width:90px">Hiệu ứng</span><input type="range" id="sSfx" min="0" max="100" value="${Math.round(au.vol.sfx * 100)}"></div>
+      <div class="set"><span style="width:90px">Màn mở đầu</span><input type="checkbox" id="sSplash" ${a.settings.splash !== false ? 'checked' : ''}></div>
       <div class="set"><span style="width:90px">Rung màn hình</span><input type="checkbox" id="sShake" ${a.settings.shake ? 'checked' : ''}></div>
       <div class="set"><span style="width:90px">Chất lượng</span><select id="sQ"><option value="1">Tiết kiệm pin</option><option value="2">Sắc nét</option></select></div>
       <p style="opacity:.75;font-size:12px">Muốn dùng nhạc hoặc âm thanh riêng? Xem <code>public/audio-user/README.md</code> trong mã nguồn. Âm thanh mặc định là tự tổng hợp, không có bản quyền.</p>
@@ -101,6 +141,7 @@ export class Screens {
     m.querySelector('#sMusic').oninput = e => au.setVolume('music', e.target.value / 100);
     m.querySelector('#sSfx').oninput = e => { au.setVolume('sfx', e.target.value / 100); };
     m.querySelector('#sSfx').onchange = () => au.sfx('buy');
+    m.querySelector('#sSplash').onchange = e => { a.settings.splash = e.target.checked; a.saveSettings(); };
     m.querySelector('#sShake').onchange = e => { a.settings.shake = e.target.checked; a.saveSettings(); };
     const q = m.querySelector('#sQ'); q.value = String(a.settings.dpr); q.onchange = () => { a.settings.dpr = +q.value; a.saveSettings(); a.applyQuality(); };
     m.querySelector('#sWipe').onclick = () => { if (confirm('Xóa ván đang lưu và kỷ lục?')) { a.wipe(); m.remove(); this.fix(); if (!a.match) this.title(); } };

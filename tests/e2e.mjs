@@ -24,7 +24,7 @@ async function open(viewport, opts = {}) {
   const page = await ctx.newPage(); const errors = [];
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push('PAGEERROR ' + e.message));
-  await page.goto(URL); await page.waitForFunction(() => window.__app, null, { timeout: 20000 });
+  await page.goto(URL + (opts.splash ? '' : '?nosplash')); await page.waitForFunction(() => window.__app, null, { timeout: 20000 });
   return { ctx, page, errors };
 }
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png` }); };
@@ -223,6 +223,30 @@ for (const [name, vp] of [['dọc 390x844', { width: 390, height: 844 }], ['ngan
     await shot(pg, name.startsWith('dọc') ? '11-mobile-combat-portrait' : '12-mobile-combat-landscape');
   });
   await step('không có lỗi console', async () => { assert.deepEqual(m.errors.filter(e => !/favicon|manifest/i.test(e)), []); });
+  await m.ctx.close();
+}
+
+// ---------- màn mở đầu ----------
+console.log('\nMàn mở đầu (splash)');
+{
+  const m = await open({ width: 1000, height: 600 }, { splash: true }); const pg = m.page;
+  await step('splash hiện logo từng chữ và lời nhắc chạm; chạm để vào màn hình chính, mở âm thanh', async () => {
+    await pg.waitForSelector('.screen.splash .sp-logo h1 .sp-word'); assert.ok(await pg.locator('.sp-logo h1 .sp-word > span').count() >= 15); assert.equal(await pg.locator('.sp-logo h1 .sp-word').count(), 3);
+    assert.equal(await pg.evaluate(() => __app.world.introOn), true);
+    await pg.waitForFunction(() => parseFloat(getComputedStyle(document.querySelector('.sp-tap')).opacity) > .3, null, { timeout: 12000 });
+    await shot(pg, '00-splash');
+    await pg.mouse.click(500, 300); await pg.waitForSelector('.screen.title.enter .logo', { timeout: 8000 });
+    assert.equal(await pg.locator('.screen.splash').count(), 0); assert.equal(await pg.evaluate(() => !!__app.audio.ctx), true, 'cú chạm phải mở AudioContext');
+    assert.ok(await pg.evaluate(() => __app.world.introT >= 99 || !__app.world.introOn));
+    await pg.waitForTimeout(900); await shot(pg, '00b-title-after-splash');
+  });
+  await step('bấm phím bất kỳ cũng vào được; tắt "Màn mở đầu" trong Cài đặt thì lần sau vào thẳng màn hình chính', async () => {
+    await pg.click('#mSet'); await pg.waitForSelector('#sSplash'); await pg.uncheck('#sSplash'); await pg.click('.modal .close');
+    await pg.goto(URL); await pg.waitForFunction(() => window.__app); await pg.waitForSelector('.screen.title'); assert.equal(await pg.locator('.screen.splash').count(), 0);
+    await pg.evaluate(() => { const s = JSON.parse(localStorage.getItem('pac3d.settings')); s.splash = true; localStorage.setItem('pac3d.settings', JSON.stringify(s)); });
+    await pg.goto(URL); await pg.waitForSelector('.screen.splash'); await pg.keyboard.press('Space'); await pg.waitForSelector('.screen.title', { timeout: 8000 });
+  });
+  await step('không có lỗi console (splash)', async () => { assert.deepEqual(m.errors.filter(e => !/favicon|manifest/i.test(e)), []); });
   await m.ctx.close();
 }
 

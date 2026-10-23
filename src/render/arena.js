@@ -67,7 +67,7 @@ export class Arena {
   buildIsland() {
     const mat = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true });
     this.islandMat = mat;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(5.2, 5, 7), mat); cone.rotation.x = Math.PI; cone.position.set(W / 2, -3, END_Z / 2); this.group.add(cone);
+    const cone = this.cone = new THREE.Mesh(new THREE.ConeGeometry(5.2, 5, 7), mat); cone.rotation.x = Math.PI; cone.position.set(W / 2, -3, END_Z / 2); this.group.add(cone);
     this.rocks = [];
     for (let i = 0; i < 6; i++) {
       const r = new THREE.Mesh(new THREE.DodecahedronGeometry(.5 + (i % 3) * .25, 0), mat);
@@ -168,6 +168,25 @@ export class Arena {
 
   highlight(pos, color) { if (!pos) { this.hl.visible = false; return; } this.hl.visible = true; this.hl.position.set(pos.x, .02, pos.z); if (color) this.hl.material.color.set(color); }
   padGlow(i, on) { const p = this.benchPads[i]; if (p) p.ring.material.color.set(on ? '#ffe14a' : '#ff4a4a'); }
+
+  // Hoạt ảnh mở đầu: các ô lục giác trồi lên theo sóng lan từ tâm, rồi khung, ghế chờ và trang trí hiện dần. t = giây từ lúc bắt đầu; t >= 5 là trạng thái cuối.
+  setIntro(t) {
+    const done = t >= 5;
+    if (done && this._introDone) return;
+    this._introDone = done;
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3();
+    const ease = k => { k = Math.max(0, Math.min(1, k)); const c = 1.7; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };   // easeOutBack
+    for (let r = 0; r < 8; r++) for (let c = 0; c < COLS; c++) {
+      const p = center(c, r), e = done ? 1 : ease((t - (.2 + Math.hypot(p.x - W / 2, p.z - END_Z / 2) * .13)) / .75);
+      pos.set(p.x, -.08 - (1 - Math.min(1, e)) * 5, p.z); const s = Math.max(.001, e); sc.set(s, s, s);
+      m.compose(pos, q, sc); this.tiles.setMatrixAt(r * 8 + c, m);
+    }
+    this.tiles.instanceMatrix.needsUpdate = true; this.tiles.frustumCulled = false;
+    const sh = done || t > 1.5; this.frame.visible = this.rim.visible = this.mid.visible = sh;
+    this.bench.visible = done || t > 1.9;
+    this.cone.scale.setScalar(done ? 1 : Math.max(.001, ease((t - .6) / 1.2)));
+    this.decor.scale.setScalar(done ? 1 : Math.max(.001, ease((t - 1.6) / .9)));
+  }
 
   update(dt, t) {
     if (this.hl.visible) { this.hl.material.opacity = .42 + .22 * Math.sin(t * 7); }

@@ -24,7 +24,7 @@ export class App {
     this.forms = FORMS;       // phục vụ kiểm thử
     this.geo = { boardPos, benchPos };
     this.modelsReady = initModels();
-    this.settings = Object.assign({ shake: true, dpr: 2, seenHint: false, seenShop: false, diff: 1 }, store.get(SET) || {});
+    this.settings = Object.assign({ shake: true, dpr: 2, seenHint: false, seenShop: false, diff: 1, splash: true }, store.get(SET) || {});
     this.audio = new Audio();
     this.world = new World(root);
     this.applyQuality();
@@ -40,7 +40,12 @@ export class App {
     this.phase = 'title'; this.match = null; this.battle = null; this.speed = 1; this.screenOpen = false; this.modalOpen = false; this.paused = false;
     this.world.shakeOn = () => this.settings.shake;
     hudRoot.classList.add('hidden');
-    this.screens.title(); this.showcase();
+    this.showcase();
+    // màn mở đầu (bỏ qua bằng ?nosplash hoặc tắt trong Cài đặt)
+    if (!new URLSearchParams(location.search).has('nosplash') && this.settings.splash !== false) {
+      this.world.startIntro(); this.screens.splash();
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) this.world.endIntro();
+    } else this.screens.title();
     addEventListener('resize', () => this.updateInset());
     this.last = performance.now();
     const loop = t => { const dt = Math.min(.05, (t - this.last) / 1000); this.last = t; this.update(dt); requestAnimationFrame(loop); };

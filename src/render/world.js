@@ -31,7 +31,7 @@ export class World {
     this.fx = new FX(this.scene, this.camera);
     this.views = new Map();       // key -> view
     this.texts = [];              // chữ nổi (sát thương, tên chiêu...)
-    this.time = 0; this.shake = 0; this.mode = 'prep';
+    this.time = 0; this.shake = 0; this.mode = 'prep'; this.introOn = false; this.introT = 99;
     this.drag = null; this.hover = null; this.battle = null; this.sound = () => { };
     this.camBase = new THREE.Vector3(); this.camLook = new THREE.Vector3();
     this.mouse = new THREE.Vector2(); this.ray = new THREE.Raycaster(); this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -76,6 +76,14 @@ export class World {
     }
     this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(this.w, this.h);
   }
+
+  // Mở đầu: camera lao xuống xoay vào, ô bàn cờ trồi lên, Pokémon nhảy vào lần lượt
+  startIntro() {
+    this.introOn = true; this.introT = 0; this.introStart = performance.now(); let i = 0;
+    for (const v of this.views.values()) { v.hideUntil = 1.5 + (i++) * .2; v.actor.group.visible = false; }
+    this.arena.setIntro(0);
+  }
+  endIntro() { this.introT = 99; this.introStart = -1e9; }
 
   setInset(top, bottom) {
     const ins = this.inset || {};
@@ -254,8 +262,14 @@ export class World {
   frame(dt) {
     this.time += dt;
     const k = Math.min(1, dt * 16);
+    if (this.introOn) { this.introT = (performance.now() - this.introStart) / 1000;   // thời gian thật để khớp với phần chữ (CSS)
+      this.arena.setIntro(this.introT); if (this.introT >= 5) { this.introOn = false; this.arena.setIntro(99); } }
     for (const v of this.views.values()) {
       const a = v.actor, f = v.f;
+      if (v.hideUntil !== undefined) {
+        if (this.introT < v.hideUntil) { a.group.visible = false; continue; }
+        v.hideUntil = undefined; a.group.visible = true; v.spawn = 1; this.fx.spark(v.x, .3, v.z, '#ffe14a', 12, 2.6, .26); this.fx.ring(v.x, v.z, 1.1, '#ffe14a', .5);
+      }
       if (f && this.battle) {
         v.x = ease(v.x, f.x, Math.min(1, dt * 22)); v.z = ease(v.z, f.z, Math.min(1, dt * 22));
         v.y = 0;
@@ -292,7 +306,9 @@ export class World {
     this.camera.position.set(this.camBase.x + (Math.random() - .5) * s, this.camBase.y + (Math.random() - .5) * s * .6, this.camBase.z);
     this.camera.lookAt(this.camLook);
     if (this.mode === 'title') {
-      const th = Math.sin(this.time * .2) * .7, ox = (this.camBase.x - this.camLook.x) * .8, oz = (this.camBase.z - this.camLook.z) * .8, oy = (this.camBase.y - this.camLook.y) * .8;
+      // lúc mở đầu: bắt đầu từ trên cao, xa, xoay lệch rồi lao xuống vào góc nhìn của màn hình chính
+      const ik = this.introOn ? Math.pow(1 - Math.min(1, this.introT / 3.6), 3) : 0, zoom = .8 + ik * 1.1;
+      const th = Math.sin(this.time * .2) * .7 + ik * 2.6, ox = (this.camBase.x - this.camLook.x) * zoom, oz = (this.camBase.z - this.camLook.z) * zoom, oy = (this.camBase.y - this.camLook.y) * (zoom + ik * .9);
       this.camera.position.set(this.camLook.x + ox * Math.cos(th) + oz * Math.sin(th), this.camLook.y + oy, this.camLook.z - ox * Math.sin(th) + oz * Math.cos(th));
       this.camera.lookAt(this.camLook.x - 2.6, 0, this.camLook.z - .6);
     }
