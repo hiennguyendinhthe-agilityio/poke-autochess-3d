@@ -21,3 +21,4 @@ Game auto chess 3D (Three.js + Vite, JavaScript thuần ES module, không TypeSc
 - Chỉ số lấy theo "hình dáng" của dạng cuối của dòng (trừ dòng có `own: true`, như Magikarp) để Pokémon chưa tiến hóa không bị thiệt so với cùng bậc giá.
 - Bàn cờ là lục giác (`src/sim/hex.js`): đội 1 = xoay 180° của đội 0 (`toGlobal`). Mọi vị trí đơn vị phải qua `center`/`toGlobal`, không dùng toạ độ thế giới cứng. Mỗi ô chỉ một Pokémon (`Battle.grid`); `leap`/`blink` phải `claim` ô đích. Có test bất biến trong `tests/unit.mjs`.
 - `tools/balance.mjs` đổi độ khó qua `DIFFICULTY[1].income`; đừng đo bằng `BOT_TUNE` đơn thuần.
+- Hồ sơ người chơi (`src/profile.js`) lưu cục bộ, KHÔNG phải xác thực: không thêm mật khẩu/tài khoản giả. Tên luôn qua `sanitizeName` khi lưu và `esc()` khi chèn HTML. Khóa lưu ván phải lấy từ `app.saveKey()` (mỗi hồ sơ một khóa), không dùng hằng cố định.

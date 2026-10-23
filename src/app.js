@@ -11,6 +11,7 @@ import { itemColor } from './ui/icons.js';
 import FORMS from './data/generated/forms.json';
 import { initModels } from './render/models.js';
 import { boardPos, benchPos } from './render/arena.js';
+import { Profiles } from './profile.js';
 
 const SAVE = 'pac3d.save', SET = 'pac3d.settings', BEST = 'pac3d.best';
 const store = {
@@ -26,6 +27,8 @@ export class App {
     this.modelsReady = initModels();
     this.settings = Object.assign({ shake: true, dpr: 2, seenHint: false, seenShop: false, diff: 1, splash: true }, store.get(SET) || {});
     this.audio = new Audio();
+    // hồ sơ người chơi lưu trên thiết bị (chịu được trường hợp trình duyệt chặn bộ nhớ)
+    this.profiles = new Profiles({ getItem: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, setItem: (k, v) => localStorage.setItem(k, v), removeItem: k => localStorage.removeItem(k) });
     this.world = new World(root);
     this.applyQuality();
     const vg = document.createElement('div'); vg.id = 'vignette'; root.appendChild(vg);
@@ -56,9 +59,11 @@ export class App {
   // ---------- thiết lập / lưu ----------
   saveSettings() { store.set(SET, this.settings); }
   applyQuality() { this.world.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.settings.dpr)); this.world.resize(); this.world.setBloom(this.settings.dpr >= 2); }
-  hasSave() { const s = store.get(SAVE); return s && !s.over && s.v === 1 ? s : null; }
-  saveGame() { if (this.match && !this.match.g.over) store.set(SAVE, this.match.g.toJSON()); }
-  wipe() { store.del(SAVE); store.del(BEST); }
+  saveKey() { return this.profiles.saveKey(); }
+  me() { const p = this.profiles.active; return p ? { name: p.name, dex: p.dex } : { name: 'Bạn', dex: null }; }
+  hasSave() { const s = store.get(this.saveKey()); return s && !s.over && s.v === 1 ? s : null; }
+  saveGame() { if (this.match && !this.match.g.over) store.set(this.saveKey(), this.match.g.toJSON()); }
+  wipe() { store.del(this.saveKey()); if (this.profiles.active) this.profiles.resetStats(); else store.del(BEST); }
   best() { return store.get(BEST); }
 
   // ---------- màn hình chính ----------
@@ -96,7 +101,7 @@ export class App {
 
   // ---------- bắt đầu ván ----------
   newGame(starter, diff = this.settings.diff ?? 1) {
-    store.del(SAVE);
+    store.del(this.saveKey());
     this.match = Match.create(undefined, starter, diff);
     this.enterGame();
   }
@@ -238,7 +243,7 @@ export class App {
     this.audio.music(out.won ? 'victory' : 'defeat');
     this.hud.refresh();
     this.hud.showResult(out);
-    if (out.over) store.del(SAVE);
+    if (out.over) store.del(this.saveKey());
     else if (this.settings.seenHint === false) { this.settings.seenHint = true; this.saveSettings(); }
   }
   nextAfterResult() {
@@ -246,8 +251,10 @@ export class App {
     const out = this.lastOut, g = this.match.g;
     this.hud.hideResult();
     if (out.over) {
-      const best = this.best(), record = !best || out.placement < best.placement;
-      if (record) store.set(BEST, { placement: out.placement, round: g.round });
+      const rec = this.profiles.record({ placement: out.placement, rounds: g.round - 1 });     // null nếu đang chơi khách
+      let record;
+      if (rec) record = rec.newBest;
+      else { const best = this.best(); record = !best || out.placement < best.placement; if (record) store.set(BEST, { placement: out.placement, round: g.round }); }
       this.phase = 'over'; this.audio.music(out.placement === 1 ? 'victory' : 'defeat');
       this.world.endCombat(g);
       this.screens.over(g, out.placement, record);

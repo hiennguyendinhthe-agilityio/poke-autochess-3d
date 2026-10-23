@@ -5,6 +5,9 @@ import { abilityText } from './describe.js';
 import { TYPE_COL } from '../data/types.js';
 import { TRAIT_LIST, modsText } from '../data/traits.js';
 import { DIFFICULTY } from '../game/bots.js';
+import { AVATARS, MAX_NAME, MAX_PROFILES } from '../profile.js';
+import { portraitUrl } from './icons.js';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const STARTERS = [
   { key: 'bulbasaur', desc: 'Bắn mưa lá từ xa, hồi phục nhờ hệ Cỏ.' },
@@ -66,8 +69,8 @@ export class Screens {
 
   title(enter = false) {
     this.clear(); const a = this.app;
-    const hasSave = a.hasSave();
-    const d = this.open(`
+    const hasSave = a.hasSave(), me = a.profiles.active;
+    const d = this.open(`<button class="pchip" id="mProf" title="Hồ sơ người chơi"><span class="pav">${me ? `<img src="${portraitUrl(me.dex)}" alt="">` : '?'}</span><span>${me ? esc(me.name) : 'Chơi khách · Đặt tên'}</span></button>
       <div class="logo">ĐẤU TRƯỜNG POKÉMON<small>AUTO CHESS 3D</small></div>
       <div class="menu">
         <button class="btn gold" id="mNew">Chơi mới</button>
@@ -77,13 +80,58 @@ export class Screens {
         <button class="btn" id="mSet">Cài đặt</button>
       </div>
       <div class="foot">Dự án fan phi thương mại, làm vì đam mê. Pokémon và tên Pokémon thuộc Nintendo / Game Freak / The Pokémon Company, dự án không liên kết với họ.<br>Sprite: PMD SpriteCollab (CC BY-NC 4.0) · Dữ liệu: PokeAPI · Âm thanh tự tổng hợp</div>`, 'title');
-    d.querySelector('#mNew').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.starter(); };
+    d.querySelector('#mProf').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.profiles(() => this.title()); };
+    d.querySelector('#mNew').onclick = () => {
+      a.audio.init(); a.audio.sfx('click');
+      // lần đầu chưa có hồ sơ: mời đặt tên (có thể bỏ qua, chơi khách)
+      if (!a.profiles.active && !a.settings.askedProfile) { a.settings.askedProfile = true; a.saveSettings(); this.profiles(() => this.starter(), true); } else this.starter();
+    };
     if (hasSave) d.querySelector('#mCont').onclick = () => { a.audio.init(); a.audio.sfx('click'); a.continueGame(); };
     d.querySelector('#mHow').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.howTo(); };
     d.querySelector('#mDex').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.codex(); };
     d.querySelector('#mSet').onclick = () => { a.audio.init(); a.audio.sfx('click'); this.settings(); };
     if (enter) d.classList.add('enter');
     a.audio.music('menu');
+  }
+
+  // Hồ sơ người chơi: chọn / tạo / sửa / xóa. `done` chạy khi đóng sau khi đã chọn xong. `prompt` = lời mời lần đầu.
+  profiles(done, prompt = false) {
+    document.querySelectorAll('.modal.prof').forEach(x => x.remove());
+    const P = this.app.profiles, a = this.app; let editing = null, pick = AVATARS[0];
+    const m = this.modal('<div></div>'); m.classList.add('prof'); const box = m.querySelector('.box');
+    const close = () => { m.remove(); this.fix(); if (done) done(); };
+    const render = () => {
+      const ed = editing && P.list.find(p => p.id === editing);
+      const stat = p => p.stats.games ? `${p.stats.games} ván · vô địch ${p.stats.wins} · top 4: ${p.stats.top4} · hạng tốt nhất #${p.stats.best}` : 'Chưa chơi ván nào';
+      box.innerHTML = `<button class="btn close" style="padding:4px 12px">${prompt ? 'Bỏ qua' : '✕'}</button><h2>${prompt ? 'Bạn tên là gì?' : 'Hồ sơ người chơi'}</h2>
+        ${prompt ? '<p style="opacity:.85">Đặt tên và chọn avatar để lưu ván và thống kê riêng. Bạn cũng có thể bỏ qua và chơi khách.</p>' : ''}
+        ${P.list.length ? `<div class="plist">${P.list.map(p => `<div class="prow ${P.active && P.active.id === p.id ? 'on' : ''}" data-id="${p.id}"><span class="pav"><img src="${portraitUrl(p.dex)}" alt=""></span>
+          <div class="pinfo"><b>${esc(p.name)}</b><small>${stat(p)}</small></div><div class="pact"><button class="btn" data-a="use" style="padding:4px 10px">${P.active && P.active.id === p.id ? 'Đang dùng' : 'Chọn'}</button><button class="btn" data-a="edit" title="Sửa" style="padding:4px 9px">✎</button><button class="btn red" data-a="del" title="Xóa" style="padding:4px 9px">🗑</button></div></div>`).join('')}</div>` : ''}
+        <h3>${ed ? 'Sửa hồ sơ' : 'Tạo hồ sơ mới'}</h3>
+        <div class="pform"><input id="pName" maxlength="${MAX_NAME * 2}" placeholder="Tên (tối đa ${MAX_NAME} ký tự)" value="${ed ? esc(ed.name) : ''}" autocomplete="off">
+          <div class="pavs">${AVATARS.map(d => `<button class="pavb ${d === pick ? 'on' : ''}" data-d="${d}" type="button"><img src="${portraitUrl(d)}" alt=""></button>`).join('')}</div>
+          <div class="perr" id="pErr"></div>
+          <div class="pbtns"><button class="btn green" id="pSave" style="justify-content:center;padding:8px 14px">${ed ? 'Lưu' : 'Tạo hồ sơ'}${prompt && !ed ? ' và chơi' : ''}</button>${ed ? '<button class="btn" id="pCancel" style="padding:8px 14px">Hủy sửa</button>' : ''}${P.active ? '<button class="btn" id="pGuest" style="padding:8px 14px">Chơi khách</button>' : ''}</div></div>
+        <p class="pnote">Hồ sơ chỉ lưu trên thiết bị này, không có mật khẩu và không gửi dữ liệu đi đâu. Tối đa ${MAX_PROFILES} hồ sơ.</p>`;
+      box.querySelector('.close').onclick = close;
+      box.querySelectorAll('.pavb').forEach(b => b.onclick = () => { pick = +b.dataset.d; box.querySelectorAll('.pavb').forEach(x => x.classList.toggle('on', x === b)); });
+      box.querySelectorAll('.prow').forEach(row => row.querySelectorAll('button').forEach(b => b.onclick = () => {
+        const id = row.dataset.id, act = b.dataset.a, p = P.list.find(x => x.id === id); a.audio.sfx('click');
+        if (act === 'use') { P.select(id); close(); }
+        else if (act === 'edit') { editing = id; pick = p.dex; render(); }
+        else if (act === 'del' && confirm(`Xóa hồ sơ "${p.name}" cùng ván đang lưu và thống kê?`)) { P.remove(id); if (editing === id) editing = null; render(); }
+      }));
+      const err = t => { box.querySelector('#pErr').textContent = t; };
+      const save = () => {
+        const name = box.querySelector('#pName').value, r = ed ? P.update(ed.id, { name, dex: pick }) : P.create(name, pick);
+        if (!r.ok) return err(r.err);
+        a.audio.sfx('buy'); if (ed) { editing = null; render(); } else close();
+      };
+      box.querySelector('#pSave').onclick = save; box.querySelector('#pName').onkeydown = e => { if (e.key === 'Enter') save(); e.stopPropagation(); };
+      const c = box.querySelector('#pCancel'); if (c) c.onclick = () => { editing = null; pick = AVATARS[0]; render(); };
+      const gs = box.querySelector('#pGuest'); if (gs) gs.onclick = () => { P.select(null); close(); };
+    };
+    render();
   }
 
   starter() {
@@ -144,7 +192,7 @@ export class Screens {
     m.querySelector('#sSplash').onchange = e => { a.settings.splash = e.target.checked; a.saveSettings(); };
     m.querySelector('#sShake').onchange = e => { a.settings.shake = e.target.checked; a.saveSettings(); };
     const q = m.querySelector('#sQ'); q.value = String(a.settings.dpr); q.onchange = () => { a.settings.dpr = +q.value; a.saveSettings(); a.applyQuality(); };
-    m.querySelector('#sWipe').onclick = () => { if (confirm('Xóa ván đang lưu và kỷ lục?')) { a.wipe(); m.remove(); this.fix(); if (!a.match) this.title(); } };
+    m.querySelector('#sWipe').onclick = () => { if (confirm('Xóa ván đang lưu và thống kê của hồ sơ đang dùng?')) { a.wipe(); m.remove(); this.fix(); if (!a.match) this.title(); } };
     m.querySelector('.close').onclick = () => { m.remove(); this.fix(); };
   }
 
@@ -190,12 +238,13 @@ export class Screens {
   over(g, placement, record) {
     this.clear(); const a = this.app;
     a.hudRoot.classList.add('hidden'); a.hud.hideResult(); a.hud.$('bannerHost').innerHTML = '';
-    const win = placement === 1;
-    const d = this.open(`<div style="font-size:18px;letter-spacing:4px;opacity:.85">${win ? 'VÔ ĐỊCH!' : 'KẾT THÚC'}</div>
+    const win = placement === 1, me = a.me();
+    const d = this.open(`<div style="font-size:18px;letter-spacing:4px;opacity:.85">${win ? 'VÔ ĐỊCH!' : 'KẾT THÚC'} · ${esc(me.name)}</div>
       <div class="place" style="color:${win ? '#ffd24a' : placement <= 4 ? '#7dffa0' : '#ff9aa8'}">#${placement}</div>
       <div style="opacity:.85">${win ? 'Bạn là Nhà Huấn Luyện giỏi nhất đấu trường!' : placement <= 4 ? 'Vào top 4, rất đáng nể!' : 'Thua keo này, bày keo khác.'}${record ? ' <b style="color:#ffd24a">· Kỷ lục mới!</b>' : ''}</div>
       <div class="final" id="fin"></div>
       <div class="stat-grid"><div><b>${g.round - (win ? 0 : 1)}</b>Vòng đã chơi</div><div><b>${g.stats.wins}/${g.stats.losses}</b>Thắng / Thua PvP</div><div><b>${g.bestStreak}</b>Chuỗi dài nhất</div><div><b>${g.stats.merges}</b>Lần lên sao</div><div><b>${g.stats.gold}</b>Vàng kiếm được</div><div><b>${g.stats.damageDealt}</b>Sát thương gây ra</div></div>
+      ${a.profiles.active ? `<div style="font-size:12px;opacity:.8">Hồ sơ ${esc(me.name)}: ${a.profiles.active.stats.games} ván · vô địch ${a.profiles.active.stats.wins} · hạng tốt nhất #${a.profiles.active.stats.best}</div>` : '<div style="font-size:12px;opacity:.7">Đang chơi khách: tạo hồ sơ ở màn hình chính để lưu thống kê</div>'}
       <div class="menu" style="margin-top:6px"><button class="btn gold" id="oAgain">Chơi lại</button><button class="btn" id="oMenu">Về menu</button></div>`, 'dim');
     const fin = d.querySelector('#fin');
     for (const u of g.board.filter(Boolean)) { const cv = document.createElement('canvas'); fin.appendChild(cv); this.stops.push(mountSprite(cv, formAt(LINE[u.key], u.star).dex, { anim: 'Idle', dir: 0, scale: 2 })); }

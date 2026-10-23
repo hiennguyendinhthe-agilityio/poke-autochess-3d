@@ -12,6 +12,7 @@ import { roundInfo, isPve } from '../src/game/rounds.js';
 import { Battle, runBattle } from '../src/sim/battle.js';
 import { playGame } from '../tools/autoplay.mjs';
 import * as HEX from '../src/sim/hex.js';
+import { Profiles, sanitizeName, AVATARS, MAX_PROFILES } from '../src/profile.js';
 
 let pass = 0, fail = 0; const failures = [];
 function t(name, fn) {
@@ -304,6 +305,45 @@ t('chơi trọn ván với người chơi tự động: không lỗi, hạng h�
 t('người chơi tự động giỏi hơn người chơi "lười" (cân bằng cơ bản)', () => {
   let a = 0, z = 0; for (let s = 1; s <= 8; s++) { a += playGame({ seed: s, skill: 1 }).rounds; z += playGame({ seed: s, lazy: true }).rounds; }
   assert.ok(a > z, `tự động ${a / 8} vòng vs lười ${z / 8} vòng`);
+});
+
+sec('Hồ sơ người chơi');
+const memStore = () => { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), m }; };
+t('làm sạch tên: bỏ < > và ký tự điều khiển, gộp khoảng trắng, tối đa 16 ký tự, giữ tiếng Việt', () => {
+  assert.equal(sanitizeName('  Trâm   <b>Anh</b> '), 'Trâm bAnh/b');
+  assert.ok(!/[<>]/.test(sanitizeName('<script>alert(1)</script>')));
+  assert.equal(sanitizeName('a\u0000b\nc'), 'abc');
+  assert.equal(sanitizeName('Nguyễn Đình Thế Hiền Lương Tâm'), 'Nguyễn Đình Thế');
+  assert.equal(sanitizeName('   '), ''); assert.equal(sanitizeName(null), ''); assert.equal([...sanitizeName('😀'.repeat(30))].length, 16);
+});
+t('tạo, chọn, đổi tên, xóa hồ sơ; không trùng tên; giới hạn số hồ sơ; dữ liệu lưu lại sau khi tải lại', () => {
+  const st = memStore(); let P = new Profiles(st);
+  assert.equal(P.active, null); assert.equal(P.create('  ', 25).ok, false);
+  const a = P.create('Trâm', 25); assert.ok(a.ok); assert.equal(P.active.name, 'Trâm');
+  assert.equal(P.create('trâm', 6).ok, false, 'tên trùng không phân biệt hoa thường'); const b = P.create('Bố', 999); assert.equal(b.profile.dex, AVATARS[0], 'avatar lạ về mặc định');
+  assert.equal(P.active.id, b.profile.id);
+  assert.ok(P.select(a.profile.id)); assert.equal(P.active.name, 'Trâm'); assert.equal(P.select('khong-co'), false);
+  assert.ok(P.update(a.profile.id, { name: 'Trâm Anh', dex: 6 }).ok); assert.equal(P.update(a.profile.id, { name: 'Bố' }).ok, false);
+  P = new Profiles(st); assert.equal(P.list.length, 2); assert.equal(P.active.name, 'Trâm Anh'); assert.equal(P.active.dex, 6);
+  assert.ok(P.remove(a.profile.id)); assert.equal(P.active, null); assert.equal(P.list.length, 1);
+  for (let i = 0; i < 20; i++) P.create('H' + i, 25); assert.equal(P.list.length, MAX_PROFILES);
+});
+t('ván lưu tách riêng theo hồ sơ; chơi khách dùng ô cũ; xóa hồ sơ xóa luôn ván lưu', () => {
+  const st = memStore(), P = new Profiles(st); assert.equal(P.saveKey(), 'pac3d.save');
+  const a = P.create('A', 25).profile, b = P.create('B', 6).profile; assert.equal(P.saveKey(), 'pac3d.save.' + b.id);
+  st.setItem(P.saveKey(a.id), 'x'); st.setItem(P.saveKey(b.id), 'y'); P.remove(b.id); assert.equal(st.getItem('pac3d.save.' + b.id), null); assert.equal(st.getItem('pac3d.save.' + a.id), 'x');
+  P.select(null); assert.equal(P.saveKey(), 'pac3d.save');
+});
+t('thống kê: số ván, vô địch, top 4, hạng tốt nhất, tổng vòng; khách không ghi', () => {
+  const P = new Profiles(memStore()); assert.equal(P.record({ placement: 1, rounds: 5 }), null);
+  P.create('A', 25); assert.deepEqual(P.record({ placement: 5, rounds: 12 }), { newBest: true }); assert.deepEqual(P.record({ placement: 7, rounds: 9 }), { newBest: false });
+  assert.deepEqual(P.record({ placement: 1, rounds: 30 }), { newBest: true }); assert.deepEqual(P.active.stats, { games: 3, wins: 1, top4: 1, best: 1, rounds: 51 });
+  P.resetStats(); assert.equal(P.active.stats.games, 0);
+});
+t('dữ liệu hỏng hoặc bộ nhớ bị chặn không làm sập', () => {
+  const bad = { getItem: () => '{not json', setItem: () => { throw new Error('full'); }, removeItem: () => { throw new Error('x'); } };
+  const P = new Profiles(bad); assert.equal(P.list.length, 0); assert.ok(P.create('Ổn', 25).ok);
+  const odd = memStore(); odd.setItem('pac3d.profiles', JSON.stringify({ active: 'ma', list: [{ id: 'p1', name: 'X', dex: 25, stats: {} }] })); assert.equal(new Profiles(odd).active, null);
 });
 
 console.log(`\n${pass} đạt, ${fail} lỗi`);

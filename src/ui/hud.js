@@ -175,9 +175,9 @@ export class Hud {
     this.set('traits', html, () => { this.$('traits').innerHTML = html; });
   }
   refreshStandings() {
-    const m = this.app.match, g = m.g, st = m.standings(), opp = g.fight ? g.fight.oppId : -1;
+    const m = this.app.match, g = m.g, st = m.standings(), opp = g.fight ? g.fight.oppId : -1, me = this.app.me();
     const html = '<h4><span>Xếp hạng</span><span>' + st.filter(x => x.alive).length + '/8</span></h4>' + st.map((p, i) =>
-      `<div class="pl ${p.me ? 'me' : ''} ${p.alive ? '' : 'dead'} ${p.id === opp && p.id ? 'opp' : ''}"><span style="opacity:.6">${i + 1}</span><span class="av" style="background:${p.col}">${p.name[0]}</span><div><div class="nm">${p.name}</div><div class="hb"><i style="width:${Math.max(0, p.hp)}%;background:${p.hp < 30 ? '#ef4444' : ''}"></i></div></div><span class="hv">${p.alive ? p.hp : '☠'}</span></div>`).join('');
+      `<div class="pl ${p.me ? 'me' : ''} ${p.alive ? '' : 'dead'} ${p.id === opp && p.id ? 'opp' : ''}"><span style="opacity:.6">${i + 1}</span><span class="av" style="background:${p.col}">${p.me && me.dex ? `<img src="${portraitUrl(me.dex)}" alt="">` : esc((p.me ? me.name : p.name)[0])}</span><div><div class="nm">${esc(p.me ? me.name : p.name)}</div><div class="hb"><i style="width:${Math.max(0, p.hp)}%;background:${p.hp < 30 ? '#ef4444' : ''}"></i></div></div><span class="hv">${p.alive ? p.hp : '☠'}</span></div>`).join('');
     this.set('standings', html, () => { this.$('standings').innerHTML = html; });
   }
 

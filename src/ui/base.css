@@ -320,3 +320,25 @@ button{font:inherit;color:inherit;cursor:pointer}
 .screen.title.enter .menu .btn:nth-child(1){animation-delay:.25s}.screen.title.enter .menu .btn:nth-child(2){animation-delay:.33s}.screen.title.enter .menu .btn:nth-child(3){animation-delay:.41s}.screen.title.enter .menu .btn:nth-child(4){animation-delay:.49s}.screen.title.enter .menu .btn:nth-child(5){animation-delay:.57s}
 @keyframes tEnter{0%{opacity:0;transform:translateY(-30px) scale(.85)}100%{opacity:1;transform:none}}
 @keyframes tBtn{0%{opacity:0;transform:translateX(-40px)}100%{opacity:1;transform:none}}
+
+/* ===== hồ sơ người chơi ===== */
+.pchip{position:absolute;right:14px;top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:8px;padding:5px 12px 5px 6px;border-radius:24px;background:var(--bg);border:1px solid var(--line);font-weight:800;font-size:13px;z-index:3;max-width:60vw}
+.pchip span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchip:hover{background:var(--bg2)}
+.pav{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#5a4bb8,#2a2060);border:2px solid rgba(255,255,255,.35);overflow:hidden;flex:none;font-weight:900}
+.pav img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+.pl .av{overflow:hidden}.pl .av img{width:130%;height:130%;object-fit:cover;image-rendering:pixelated}
+.plist{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.prow{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid transparent}
+.prow.on{border-color:var(--accent);background:rgba(255,207,58,.12)}
+.pinfo{flex:1;min-width:0}.pinfo b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pinfo small{opacity:.75;font-size:11px}
+.pact{display:flex;gap:4px;flex:none}
+.pform input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.3);color:#fff;font:inherit;font-weight:700;font-size:16px;user-select:text;-webkit-user-select:text}
+.pavs{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:10px 0}
+.pavb{aspect-ratio:1;border-radius:12px;border:2px solid transparent;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.18),rgba(20,16,44,.9));padding:0;overflow:hidden;touch-action:manipulation}
+.pavb.on{border-color:var(--accent);box-shadow:0 0 12px rgba(255,207,58,.6)}
+.pavb img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+.perr{color:#ff8a9a;font-weight:800;min-height:18px;font-size:13px}
+.pbtns{display:flex;gap:8px;flex-wrap:wrap}
+.pnote{font-size:11.5px;opacity:.7;margin-top:10px}
+@media (max-width:620px){.pchip{max-width:56vw;right:8px}.pact .btn{padding:4px 7px!important}}

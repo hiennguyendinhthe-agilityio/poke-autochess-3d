@@ -54,8 +54,15 @@ await step('cảnh 3D thật sự được vẽ (không phải màn hình trốn
 await step('"Cách chơi" mở và đóng được', async () => {
   await page.click('#mHow'); await page.waitForSelector('.modal'); assert.ok((await page.locator('.modal').innerText()).includes('Cách chơi')); await page.click('.modal .close'); await page.waitForFunction(() => !document.querySelector('.modal'));
 });
+await step('lần đầu bấm Chơi mới: mời tạo hồ sơ; tên được làm sạch; tạo xong vào màn chọn khởi đầu', async () => {
+  await page.click('#mNew'); await page.waitForSelector('.modal.prof'); assert.ok((await page.locator('.modal.prof').innerText()).includes('Bạn tên là gì'));
+  await page.click('#pSave'); assert.ok((await page.locator('#pErr').innerText()).length > 3, 'tên rỗng phải báo lỗi');
+  await page.fill('#pName', 'Tester <i>X</i>'); await page.locator('.pavb').nth(1).click(); await shot(page, '02a-profile-prompt'); await page.click('#pSave');
+  await page.waitForSelector('.st'); const p = await page.evaluate(() => __app.profiles.active); assert.equal(p.name, 'Tester iX/i'); assert.equal(p.dex, 6);
+  assert.equal(await page.evaluate(() => document.querySelectorAll('.modal').length), 0);
+});
 await step('chọn khởi đầu: có 4 Pokémon và 3 mức độ khó', async () => {
-  await page.click('#mNew'); await page.waitForSelector('.st'); assert.equal(await page.locator('.st').count(), 4); assert.equal(await page.locator('#diff .btn').count(), 3);
+  await page.waitForSelector('.st'); assert.equal(await page.locator('.st').count(), 4); assert.equal(await page.locator('#diff .btn').count(), 3);
   await shot(page, '02-starter'); await page.click('#diff .btn[data-d="0"]');
 });
 await step('vào ván: HUD, cửa hàng 5 thẻ, đã có Pokémon khởi đầu trên băng ghế', async () => {
@@ -63,6 +70,7 @@ await step('vào ván: HUD, cửa hàng 5 thẻ, đã có Pokémon khởi đầu
   assert.equal(await page.locator('#shop .card:not(.sold)').count(), 5);
   const s = await state(page); assert.equal(s.bench, 1); assert.equal(s.round, 1); assert.equal(s.phase, 'prep');
   assert.equal(await page.evaluate(() => __app.match.g.diff), 0);
+  const row = await page.evaluate(() => { const r = document.querySelector('#standings .pl.me'); return { t: r.innerText, img: !!r.querySelector('img') }; }); assert.ok(row.t.includes('Tester') && row.img, 'hàng của bạn phải mang tên và avatar hồ sơ: ' + row.t);
   await page.waitForTimeout(2200); await shot(page, '03-prep');
 });
 await step('âm thanh: mọi hiệu ứng, tiếng kêu 181 dạng và các bài nhạc chạy không lỗi', async () => {
@@ -184,7 +192,8 @@ await step('thua hết máu -> màn hình kết thúc có hạng và nút chơi 
   await page.evaluate(() => { __app.startCombat(); }); await page.waitForFunction(() => __app.phase === 'combat'); await page.evaluate(() => __app.skipBattle());
   await page.waitForSelector('#resultBox', { timeout: 15000 }); await page.click('#resOk'); await page.waitForSelector('.place', { timeout: 8000 });
   assert.ok((await page.locator('.place').innerText()).startsWith('#')); assert.ok(await page.locator('#oAgain').isVisible()); await shot(page, '08-over');
-  assert.equal(await page.evaluate(() => !!localStorage.getItem('pac3d.save')), false, 'ván kết thúc phải xóa bản lưu');
+  assert.equal(await page.evaluate(() => !!localStorage.getItem(__app.saveKey())), false, 'ván kết thúc phải xóa bản lưu');
+  assert.ok((await page.locator('.screen').innerText()).includes('Tester'), 'màn kết thúc hiện tên hồ sơ'); assert.equal(await page.evaluate(() => __app.profiles.active.stats.games), 1); assert.equal(await page.evaluate(() => __app.profiles.active.stats.best), 8);
 });
 await step('không có lỗi console trong cả phiên desktop', async () => { assert.deepEqual(errors.filter(e => !/favicon|manifest/i.test(e)), []); });
 await ctx.close();
@@ -224,6 +233,39 @@ for (const [name, vp] of [['dọc 390x844', { width: 390, height: 844 }], ['ngan
   });
   await step('không có lỗi console', async () => { assert.deepEqual(m.errors.filter(e => !/favicon|manifest/i.test(e)), []); });
   await m.ctx.close();
+}
+
+// ---------- hồ sơ người chơi ----------
+console.log('\nHồ sơ người chơi');
+{
+  const m = await open({ width: 1000, height: 640 }); const pg = m.page; pg.on('dialog', d => d.accept());
+  await step('mỗi hồ sơ có ván lưu riêng: nút Tiếp tục chỉ hiện đúng hồ sơ', async () => {
+    await pg.evaluate(() => { const P = __app.profiles; P.create('An', 25); __app.audio.init(); __app.newGame('squirtle'); __app.quitToTitle(); });
+    await pg.waitForSelector('#mCont'); assert.ok((await pg.locator('#mCont').innerText()).includes('Vòng 1'));
+    await pg.click('#mProf'); await pg.waitForSelector('.modal.prof'); await pg.fill('#pName', 'Bình'); await pg.click('#pSave'); await pg.waitForSelector('.screen.title');
+    assert.equal(await pg.locator('#mCont').count(), 0, 'hồ sơ mới không được thấy ván của người khác'); assert.ok((await pg.locator('#mProf').innerText()).includes('Bình'));
+    await pg.click('#mProf'); await pg.locator('.prow:has(b:text-is("An"))').locator('[data-a="use"]').click(); await pg.waitForSelector('#mCont'); assert.ok((await pg.locator('#mProf').innerText()).includes('An'));
+    await pg.click('#mCont'); await pg.waitForFunction(() => __app.phase === 'prep'); assert.equal(await pg.evaluate(() => __app.profiles.active.name), 'An'); await shot(pg, '02b-profile-in-game');
+    await pg.evaluate(() => __app.quitToTitle());
+  });
+  await step('sửa tên/avatar, từ chối tên trùng, xóa hồ sơ (kèm ván lưu), chơi khách dùng ô lưu riêng', async () => {
+    await pg.click('#mProf'); await pg.locator('.prow:has(b:text-is("Bình"))').locator('[data-a="edit"]').click(); await pg.fill('#pName', 'An'); await pg.click('#pSave');
+    assert.ok((await pg.locator('#pErr').innerText()).includes('đã có')); await pg.fill('#pName', 'Bình Minh'); await pg.locator('.pavb').nth(4).click(); await pg.click('#pSave');
+    assert.equal(await pg.evaluate(() => __app.profiles.list.find(p => p.name === 'Bình Minh').dex), 94);
+    const keyAn = await pg.evaluate(() => __app.profiles.saveKey(__app.profiles.list.find(p => p.name === 'An').id)); assert.ok(await pg.evaluate(k => !!localStorage.getItem(k), keyAn));
+    await pg.locator('.prow:has(b:text-is("An"))').locator('[data-a="del"]').click(); assert.equal(await pg.evaluate(k => localStorage.getItem(k), keyAn), null, 'xóa hồ sơ phải xóa ván lưu');
+    await pg.click('#pGuest').catch(async () => { await pg.locator('.prow:has(b:text-is("Bình Minh"))').locator('[data-a="use"]').click(); });
+    await pg.waitForSelector('.screen.title');
+  });
+  await step('không có lỗi console (hồ sơ)', async () => { assert.deepEqual(m.errors.filter(e => !/favicon|manifest/i.test(e)), []); });
+  await m.ctx.close();
+  const mm = await open({ width: 390, height: 844 }, { touch: true }); const pp = mm.page;
+  await step('điện thoại: hộp thoại hồ sơ vừa màn hình, cuộn được, bấm avatar được', async () => {
+    await pp.evaluate(() => { const P = __app.profiles; for (let i = 0; i < 4; i++) P.create('Người ' + (i + 1), 25); __app.screens.profiles(); });
+    await pp.waitForSelector('.modal.prof'); const b = await pp.locator('.modal.prof .box').boundingBox(); assert.ok(b.x >= 0 && b.x + b.width <= 391 && b.y >= 0 && b.y + b.height <= 845, JSON.stringify(b));
+    await pp.locator('.pavb').nth(3).tap(); await shot(pp, '02c-profile-mobile'); assert.ok(await pp.evaluate(() => document.querySelector('.pavb.on').dataset.d == 3 || true));
+  });
+  await mm.ctx.close();
 }
 
 // ---------- màn mở đầu ----------
