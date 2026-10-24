@@ -21,6 +21,7 @@ Mua Pokémon, xếp đội hình, gộp 3 con để **lên sao và tiến hóa**
 | Giao diện | Thẻ cửa hàng kiểu TFT (cột huy hiệu hệ/tộc, khung theo giá). **Chạm = mua, giữ = xem thông tin** (cảm ứng); **bấm vào hệ/tộc** để xem mọi Pokémon thuộc hệ/tộc đó (đang có ở sân/ghế/cửa hàng) và viền sáng các con liên quan trên sân. Bloom nhẹ và vignette ở chế độ "Sắc nét" |
 | Màn mở đầu | Camera lao xuống, ô lục giác trồi lên theo sóng, Pokémon nhảy vào, logo hiện từng chữ kèm pháo hoa hạt và âm thanh bừng sáng khi chạm. Bỏ qua bằng `?nosplash` hoặc tắt trong Cài đặt; tôn trọng `prefers-reduced-motion` |
 | Hồ sơ người chơi | Tên + avatar Pokémon, tối đa 8 hồ sơ trên một thiết bị, mỗi hồ sơ có **ván lưu riêng** và thống kê (số ván, vô địch, top 4, hạng tốt nhất). Lưu trên thiết bị, **không mật khẩu, không máy chủ, không thu thập dữ liệu**; có chế độ chơi khách |
+| Do thám đối thủ | Bấm vào hàng một người chơi trong **Xếp hạng** để xem đội hình họ đang xây: Pokémon ra sân (số con = cấp), sao, vật phẩm, tộc/hệ đang có; bấm một con để xem kỹ năng. Bot bị loại hiện đội cuối cùng (mờ). Chỉ đọc, logic ở `src/game/scout.js` |
 | Tiện ích | Danh mục Pokémon, 3 mức độ khó, tự lưu và tiếp tục, tăng tốc trận x1/x2/x4, cài như app (PWA) và chơi offline, hỗ trợ cảm ứng |
 
 ## Chơi thế nào

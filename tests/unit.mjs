@@ -12,6 +12,8 @@ import { roundInfo, isPve } from '../src/game/rounds.js';
 import { Battle, runBattle } from '../src/sim/battle.js';
 import { playGame } from '../tools/autoplay.mjs';
 import * as HEX from '../src/sim/hex.js';
+import { growBot } from '../src/game/bots.js';
+import { scoutTeam } from '../src/game/scout.js';
 import { Profiles, sanitizeName, AVATARS, MAX_PROFILES } from '../src/profile.js';
 
 let pass = 0, fail = 0; const failures = [];
@@ -339,6 +341,22 @@ t('thống kê: số ván, vô địch, top 4, hạng tốt nhất, tổng vòng
   P.create('A', 25); assert.deepEqual(P.record({ placement: 5, rounds: 12 }), { newBest: true }); assert.deepEqual(P.record({ placement: 7, rounds: 9 }), { newBest: false });
   assert.deepEqual(P.record({ placement: 1, rounds: 30 }), { newBest: true }); assert.deepEqual(P.active.stats, { games: 3, wins: 1, top4: 1, best: 1, rounds: 51 });
   P.resetStats(); assert.equal(P.active.stats.games, 0);
+});
+sec('Do thám đội hình');
+t('scoutTeam: bot ra đúng số con theo cấp, có tộc/hệ, không đổi trạng thái; bot bị loại vẫn trả về đội cuối', () => {
+  const m = Match.create(7, 'charmander', 1); const g = m.g;
+  for (let r = 1; r <= 9; r++) for (const b of g.bots) growBot(b, r, g.rng);
+  const before = JSON.stringify(g.bots);
+  for (const b of g.bots) {
+    const r = scoutTeam(g, b.id);
+    assert.equal(r.units.length, Math.min(b.level, b.units.length)); assert.equal(r.name, b.name);
+    for (const u of r.units) { assert.ok(LINE[u.key] && u.star >= 1 && Array.isArray(u.items)); }
+    assert.ok(r.traits.every(x => x.count >= 1 && TRAITS[x.id]));
+  }
+  assert.equal(JSON.stringify(g.bots), before, 'chỉ đọc, không đổi bot');
+  g.bots[0].alive = false; assert.equal(scoutTeam(g, g.bots[0].id).alive, false); assert.ok(scoutTeam(g, g.bots[0].id).units.length > 0);
+  assert.equal(scoutTeam(g, 12345), null);
+  const me = scoutTeam(g, 0); assert.ok(me.me && me.units.length === g.boardUnits().length);
 });
 t('dữ liệu hỏng hoặc bộ nhớ bị chặn không làm sập', () => {
   const bad = { getItem: () => '{not json', setItem: () => { throw new Error('full'); }, removeItem: () => { throw new Error('x'); } };

@@ -342,3 +342,21 @@ button{font:inherit;color:inherit;cursor:pointer}
 .pbtns{display:flex;gap:8px;flex-wrap:wrap}
 .pnote{font-size:11.5px;opacity:.7;margin-top:10px}
 @media (max-width:620px){.pchip{max-width:56vw;right:8px}.pact .btn{padding:4px 7px!important}}
+
+/* ---- do thám đội hình người chơi khác ---- */
+.pl{cursor:pointer;touch-action:manipulation}
+.pl:hover{background:rgba(255,255,255,.1)}
+.pl.scout{outline:1px solid var(--accent);background:rgba(255,207,58,.12)}
+.spanel{position:absolute;right:10px;top:232px;width:250px;max-height:calc(100% - 420px);overflow-y:auto;padding:9px 11px;z-index:30;font-size:12.5px;scrollbar-width:thin}
+.spanel.dead{filter:saturate(.45)}
+.spanel .th{display:flex;gap:8px;align-items:center}.spanel .th h3{margin:0;font-size:15px}.spanel .x{margin-left:auto;cursor:pointer;opacity:.7;font-size:18px;padding:0 4px}
+.spanel .th .av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:900;color:#111;flex:none}
+.spanel .fl{opacity:.75;font-style:italic;margin:6px 0}
+.sct{display:flex;flex-wrap:wrap;gap:4px;margin:7px 0 2px}
+.sch{display:inline-flex;align-items:center;gap:3px;padding:1px 6px 1px 3px;border-radius:999px;border:1px solid var(--tc);opacity:.55;font-size:11px}
+.sch.on{opacity:1;background:rgba(255,255,255,.1)}
+.spanel .mem{opacity:1;cursor:pointer}
+.mem .mi{position:absolute;bottom:1px;left:0;right:0;display:flex;justify-content:center;gap:1px}
+@media (max-width:820px){.spanel{right:auto;left:50%;top:50px;transform:translateX(-50%);width:min(340px,94vw);max-height:56vh}}
+@media (max-width:620px) and (orientation:portrait){.spanel{top:104px;max-height:52vh}.pl{min-height:38px;justify-content:center}}
+@media (max-height:520px){.spanel{top:44px;max-height:calc(100% - 140px);width:min(300px,56vw)}}

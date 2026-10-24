@@ -96,8 +96,11 @@ export function growBot(bot, round, rng, income = BOT_TUNE.income) {
 }
 
 // Xếp đội hình của bot vào ô: kẻ cận chiến đứng trước, đánh xa đứng sau
+// Các con bot sẽ đưa ra sân: `level` con giá trị cao nhất
+export const fieldUnits = bot => [...bot.units].sort((a, b) => value(bot, b) - value(bot, a)).slice(0, bot.level);
+
 export function botSpecs(bot, team, idBase = 0) {
-  const top = [...bot.units].sort((a, b) => value(bot, b) - value(bot, a)).slice(0, bot.level);
+  const top = fieldUnits(bot);
   const front = top.filter(u => LINE[u.key].range <= 1).sort((a, b) => LINE[b.key].cost - LINE[a.key].cost);
   const back = top.filter(u => LINE[u.key].range > 1).sort((a, b) => LINE[b.key].cost - LINE[a.key].cost);
   const order = [3, 4, 2, 5, 1, 6, 0, 7];

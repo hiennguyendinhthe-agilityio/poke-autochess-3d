@@ -6,6 +6,7 @@ import { TYPE_COL } from '../data/types.js';
 import { traitBadge, typeChip, itemIcon, portraitUrl, mountSprite } from './icons.js';
 import { abilityText, itemTip } from './describe.js';
 import { sellValue, XP_COST, ROLL_COST, BENCH_SIZE, XP_NEED, MAX_ITEMS } from '../game/state.js';
+import { scoutTeam } from '../game/scout.js';
 import { previewFighter } from '../sim/battle.js';
 import { LINES_BY_COST } from '../data/roster.js';
 
@@ -33,6 +34,7 @@ export class Hud {
       <div class="traits" id="traits"></div>
       <div class="panel info hidden" id="info"></div>
       <div class="panel tpanel hidden" id="tpanel"></div>
+      <div class="panel spanel hidden" id="spanel"></div>
       <div class="bottom">
         <div class="panel bag" id="bag"></div>
         <div class="shopwrap">
@@ -94,6 +96,12 @@ export class Hud {
       if (e.target.closest('.x')) return this.hideTrait();
       const m = e.target.closest('.mem'); if (m) { this.traitMem = this.traitMem === m.dataset.key ? null : m.dataset.key; this.app.audio.sfx('click'); this.renderTrait(); }
     });
+    // bấm vào hàng của một người chơi trong bảng xếp hạng: xem đội hình họ đang xây
+    $('standings').addEventListener('click', e => { const r = e.target.closest('.pl'); if (r) this.toggleScout(+r.dataset.pid); });
+    $('spanel').addEventListener('click', e => {
+      if (e.target.closest('.x')) return this.hideScout();
+      const m = e.target.closest('.mem'); if (m) { this.scoutMem = this.scoutMem === m.dataset.key ? null : m.dataset.key; this.app.audio.sfx('click'); this.renderScout(); }
+    });
     // kéo vật phẩm từ kho
     $('bag').addEventListener('pointerdown', e => {
       const s = e.target.closest('.slot.has'); if (!s) return; e.preventDefault();
@@ -148,7 +156,7 @@ export class Hud {
     for (let i = 0; i < 10; i++) { const it = g.bag[i]; bg += it ? `<div class="slot has" data-bag="${i}" data-tid="${this.tid(itemTip(it))}">${itemIcon(it, 32)}</div>` : '<div class="slot"></div>'; }
     this.set('bag', bg, () => { $('bag').innerHTML = bg; }); $('bag').classList.toggle('hidden', false);
     this.refreshTraits(); this.refreshStandings();
-    this.refreshInfo(); if (this.traitSel) this.renderTrait();
+    this.refreshInfo(); if (this.traitSel) this.renderTrait(); if (this.scoutSel != null) this.renderScout();
   }
   set(k, html, fn) { if (this.last[k] === html) return; this.last[k] = html; fn(); }
 
@@ -177,12 +185,12 @@ export class Hud {
   refreshStandings() {
     const m = this.app.match, g = m.g, st = m.standings(), opp = g.fight ? g.fight.oppId : -1, me = this.app.me();
     const html = '<h4><span>Xếp hạng</span><span>' + st.filter(x => x.alive).length + '/8</span></h4>' + st.map((p, i) =>
-      `<div class="pl ${p.me ? 'me' : ''} ${p.alive ? '' : 'dead'} ${p.id === opp && p.id ? 'opp' : ''}"><span style="opacity:.6">${i + 1}</span><span class="av" style="background:${p.col}">${p.me && me.dex ? `<img src="${portraitUrl(me.dex)}" alt="">` : esc((p.me ? me.name : p.name)[0])}</span><div><div class="nm">${esc(p.me ? me.name : p.name)}</div><div class="hb"><i style="width:${Math.max(0, p.hp)}%;background:${p.hp < 30 ? '#ef4444' : ''}"></i></div></div><span class="hv">${p.alive ? p.hp : '☠'}</span></div>`).join('');
+      `<div class="pl ${p.id === this.scoutSel ? 'scout' : ''} ${p.me ? 'me' : ''} ${p.alive ? '' : 'dead'} ${p.id === opp && p.id ? 'opp' : ''}" data-pid="${p.id}" title="Xem đội hình"><span style="opacity:.6">${i + 1}</span><span class="av" style="background:${p.col}">${p.me && me.dex ? `<img src="${portraitUrl(me.dex)}" alt="">` : esc((p.me ? me.name : p.name)[0])}</span><div><div class="nm">${esc(p.me ? me.name : p.name)}</div><div class="hb"><i style="width:${Math.max(0, p.hp)}%;background:${p.hp < 30 ? '#ef4444' : ''}"></i></div></div><span class="hv">${p.alive ? p.hp : '☠'}</span></div>`).join('');
     this.set('standings', html, () => { this.$('standings').innerHTML = html; });
   }
 
   // ---------- bảng thành viên của hệ/tộc ----------
-  toggleTrait(id) { this.traitMem = null; this.traitSel = this.traitSel === id ? null : id; this.app.audio.sfx('click'); this.renderTrait(); }
+  toggleTrait(id) { this.hideScout(); this.traitMem = null; this.traitSel = this.traitSel === id ? null : id; this.app.audio.sfx('click'); this.renderTrait(); }
   hideTrait() { this.traitSel = null; this.traitMem = null; this.renderTrait(); }
   renderTrait() {
     const el = this.$('tpanel'), id = this.traitSel, w = this.app.world;
@@ -220,9 +228,47 @@ export class Hud {
     w.glow = { keys, col: t.color };
   }
 
+  // ---------- đội hình của người chơi khác (do thám) ----------
+  toggleScout(id) {
+    this.app.audio.sfx('click'); this.scoutMem = null;
+    if (this.scoutSel === id) return this.hideScout();
+    if (this.traitSel) this.hideTrait();
+    this.hideInfo(true); this.scoutSel = id; this.refreshStandings(); this.renderScout();
+  }
+  hideScout() { if (this.scoutSel == null) return; this.scoutSel = null; this.scoutMem = null; this.renderScout(); this.refreshStandings(); }
+  renderScout() {
+    const el = this.$('spanel'), id = this.scoutSel;
+    if (id == null) { el.classList.add('hidden'); return; }
+    const g = this.app.match.g, r = scoutTeam(g, id);
+    if (!r) return this.hideScout();
+    const name = r.me ? this.app.me().name : r.name;
+    const grid = r.units.map(u => {
+      const f = formAt(LINE[u.key], u.star);
+      return `<div class="mem on ${this.scoutMem === u.key ? 'sel' : ''}" style="--mc:${COST_COL[u.cost]}" data-key="${u.key}" title="${esc(f.name)}">
+        <img src="${portraitUrl(f.dex)}" alt=""><span class="ms">${'★'.repeat(u.star)}</span>${u.items.length ? `<div class="mi">${u.items.map(i => itemIcon(i, 14)).join('')}</div>` : ''}</div>`;
+    }).join('');
+    const traits = r.traits.map(a => { const t = TRAITS[a.id]; return `<span class="sch ${a.tier >= 0 ? 'on' : ''}" style="--tc:${t.color}">${traitBadge(a.id, 16)}<b>${a.count}</b></span>`; }).join('');
+    let detail = '';
+    if (this.scoutMem) {
+      const u = r.units.find(x => x.key === this.scoutMem);
+      if (u) {
+        const l = LINE[u.key], f = formAt(l, u.star), ab = abilityText(l, u.star);
+        detail = `<div class="tdetail"><b style="color:${COST_COL[l.cost]}">● Giá ${l.cost}</b> · <b>${esc(f.name)}</b> ${STAR(u.star)}
+          <div class="row" style="display:flex;gap:3px;flex-wrap:wrap;margin:4px 0">${unitTraits(l, u.star).map(x => typeChip(x)).join('')}</div>
+          ${ab ? `<div><b style="color:${TYPE_COL[ab.type]}">✦ ${ab.name}</b>: ${ab.text}</div>` : ''}
+          ${u.items.length ? `<div class="its" style="margin-top:4px">${u.items.map(i => `<div class="slot has" data-tid="${this.tid(itemTip(i))}">${itemIcon(i, 28)}</div>`).join('')}</div>` : ''}</div>`;
+      }
+    }
+    el.classList.toggle('dead', !r.alive);
+    el.innerHTML = `<div class="th"><span class="av" style="background:${r.col}">${esc(name[0])}</span><div><h3>${esc(name)}</h3><div style="font-size:11px;opacity:.75">${r.me ? 'Đội của bạn' : 'Đang xây'} · Cấp ${r.level} · ${r.alive ? '♥ ' + r.hp : '☠ đã bị loại (đội cuối cùng)'}</div></div><span class="x">✕</span></div>
+      <div class="sct">${traits || '<span style="opacity:.6">Chưa có tộc/hệ nào</span>'}</div>
+      ${detail}${r.units.length ? `<div class="mems">${grid}</div>` : '<div class="fl">Chưa có Pokémon nào trên sân.</div>'}`;
+    el.classList.remove('hidden');
+  }
+
   // ---------- thông tin Pokémon ----------
   // sel: { id } (của mình) | { shop: key } | { enemy: specId }
-  showInfo(sel) { this.sel = sel; this.refreshInfo(); }
+  showInfo(sel) { this.hideScout(); this.sel = sel; this.refreshInfo(); }
   hideInfo(clear) { if (clear) this.sel = null; this.$('info').classList.add('hidden'); if (this.stop) { this.stop(); this.stop = null; } this.shownKey = null; }
   refreshInfo() {
     const el = this.$('info'), s = this.sel, a = this.app, g = a.match.g;

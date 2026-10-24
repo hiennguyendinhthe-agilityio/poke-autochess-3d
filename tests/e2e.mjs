@@ -106,6 +106,22 @@ await step('bấm vào hệ/tộc: mở bảng thành viên, có trạng thái s
   await page.mouse.click(1000, 400); await page.waitForSelector('#tpanel.hidden', { state: 'attached' }); assert.equal(await page.evaluate(() => __app.world.glow), null);
   await page.locator('.trait[data-trait="Fire"]').click(); await page.locator('#tpanel .x').click(); await page.waitForSelector('#tpanel.hidden', { state: 'attached' });
 });
+await step('bấm hàng đối thủ trong bảng xếp hạng: hiện đội hình đang xây; xem chi tiết; bấm lại/✕/khoảng trống thì đóng; bot bị loại mờ đi', async () => {
+  const bid = await page.evaluate(() => { const b = __app.match.g.bots[0]; b.level = 5; b.units = ['charmander', 'squirtle', 'bulbasaur', 'pikachu', 'geodude', 'machop'].map((key, i) => ({ key, star: 1 + (i === 0), items: i === 0 ? ['choiceband'] : [], id: 900 + i })); return b.id; });
+  await page.evaluate(() => __app.refreshView());
+  await page.locator(`#standings .pl[data-pid="${bid}"]`).click(); await page.waitForSelector('#spanel:not(.hidden)');
+  const r = await page.evaluate(() => ({ txt: document.getElementById('spanel').innerText, n: document.querySelectorAll('#spanel .mem').length, want: Math.min(5, __app.match.g.bots[0].units.length) }));
+  assert.ok(r.n === r.want && r.n >= 1, JSON.stringify(r)); assert.ok(r.txt.includes('Cấp 5'));
+  await shot(page, '03c-scout-panel');
+  await page.locator('#spanel .mem').first().click(); assert.ok((await page.locator('#spanel .tdetail').innerText()).includes('Giá'));
+  await page.locator(`#standings .pl[data-pid="${bid}"]`).click(); await page.waitForSelector('#spanel.hidden', { state: 'attached' });
+  await page.locator('#standings .pl.me').click(); await page.waitForSelector('#spanel:not(.hidden)'); assert.ok((await page.locator('#spanel').innerText()).includes('Đội của bạn'));
+  await page.locator('#spanel .x').click(); await page.waitForSelector('#spanel.hidden', { state: 'attached' });
+  await page.evaluate(id => { __app.match.g.bots.find(b => b.id === id).alive = false; __app.refreshView(); }, bid);
+  await page.locator(`#standings .pl[data-pid="${bid}"]`).click(); await page.waitForSelector('#spanel.dead'); assert.ok((await page.locator('#spanel').innerText()).includes('đã bị loại'));
+  await page.mouse.click(1000, 400); await page.waitForSelector('#spanel.hidden', { state: 'attached' });
+  await page.evaluate(id => { __app.match.g.bots.find(b => b.id === id).alive = true; __app.refreshView(); }, bid);
+});
 await step('gộp 3 con giống nhau qua giao diện: lên 2★, tiến hóa, có hiệu ứng, không lỗi', async () => {
   const r = await page.evaluate(() => { const g = __app.match.g; g.gold = 30; g.bench.fill(null); g.board.fill(null); g.bench[0] = g.makeUnit('machop', 1); g.bench[1] = g.makeUnit('machop', 1); g.shop[2] = 'machop'; g.pool.machop--; __app.refreshView(); return true; });
   await page.locator('#shop .card').nth(2).click(); await page.locator('.toast', { hasText: '2★' }).first().waitFor({ timeout: 5000 });
@@ -226,6 +242,14 @@ for (const [name, vp] of [['dọc 390x844', { width: 390, height: 844 }], ['ngan
     await pg.locator('.trait').first().tap(); await pg.waitForSelector('#tpanel:not(.hidden)');
     const box = await pg.locator('#tpanel').boundingBox(); assert.ok(box.x >= -1 && box.y >= -1 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1, 'bảng tràn màn hình ' + JSON.stringify(box));
     await shot(pg, name.startsWith('dọc') ? '15-mobile-trait' : '16-mobile-trait-land'); await pg.locator('#tpanel .x').tap();
+  });
+  await step('cảm ứng: chạm hàng đối thủ mở bảng đội hình vừa màn hình; hàng đủ lớn để chạm', async () => {
+    const row = pg.locator('#standings .pl:not(.me)').first(); const rb = await row.boundingBox();
+    if (name.startsWith('dọc')) assert.ok(rb.height >= 36, 'hàng quá nhỏ để chạm ' + rb.height);
+    await row.tap(); await pg.waitForSelector('#spanel:not(.hidden)');
+    const box = await pg.locator('#spanel').boundingBox(); assert.ok(box.x >= -1 && box.y >= -1 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1, 'bảng tràn màn hình ' + JSON.stringify(box));
+    await shot(pg, name.startsWith('dọc') ? '17-mobile-scout' : '18-mobile-scout-land'); await pg.locator('#spanel .x').tap();
+    await pg.waitForSelector('#spanel.hidden', { state: 'attached' });
   });
   await step('cảm ứng: SẴN SÀNG bắt đầu trận', async () => {
     await pg.locator('#bReady').tap(); await pg.waitForFunction(() => __app.phase === 'combat', null, { timeout: 8000 }); await pg.waitForTimeout(1500);
